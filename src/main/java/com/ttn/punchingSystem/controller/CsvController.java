@@ -1,8 +1,9 @@
 package com.ttn.punchingSystem.controller;
 
-import com.ttn.punchingSystem.model.PunchData;
+import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.service.CsvReaderService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -19,7 +20,7 @@ public class CsvController {
     private CsvReaderService csvReaderService;
 
     @GetMapping("/read-csv")
-    public List<PunchData> readCsv(@RequestParam("filePath") String filePath) throws ParseException {
+    public ResponseEntity<List<PunchingDetailsDTO>> readCsv(@RequestParam("filePath") String filePath) throws ParseException {
         return csvReaderService.readCsvFile(filePath);
     }
 

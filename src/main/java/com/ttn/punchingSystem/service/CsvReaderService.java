@@ -1,21 +1,21 @@
 package com.ttn.punchingSystem.service;
 
-import com.ttn.punchingSystem.model.PunchData;
-import com.ttn.punchingSystem.model.PunchLog;
+import com.ttn.punchingSystem.model.PunchingDetailsDTO;
+import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
 import com.ttn.punchingSystem.utils.AppConstant;
 import com.ttn.punchingSystem.utils.DateUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class CsvReaderService {
@@ -23,17 +23,17 @@ public class CsvReaderService {
     @Autowired
     private PunchLogRepository punchLogRepository;
 
-    public List<PunchData> readCsvFile(String filePath) throws ParseException {
-        List<PunchData> punchDataList = new ArrayList<>();
+    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException {
+        List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         validateFileName(filePath);
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             br.readLine();
             while ((line = br.readLine()) != null) {
                 String[] data = line.split(",");
-                PunchData punchData = new PunchData(data[0], data[1]);
-                if (isValidPunchData(punchData)) {
-                    punchDataList.add(punchData);
+                PunchingDetailsDTO punchingDetailsDTO = new PunchingDetailsDTO(data[0], data[1]);
+                if (isValidPunchData(punchingDetailsDTO)) {
+                    punchDataList.add(punchingDetailsDTO);
                 }
             }
         } catch (IOException e) {
@@ -42,18 +42,10 @@ public class CsvReaderService {
             Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
             saveProcessedPunchLogs(userPunchTimes);
 
-        return punchDataList;
+        return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
     }
 
-    /*private PunchData parseLine(String line) {
-        String[] fields = line.split(",");
-        PunchData punchData = new PunchData();
-        punchData.setUserEmail(fields[0].trim());
-        punchData.setPunchTime(fields[1].trim());
-        return punchData;
-    }*/
-
-    private boolean isValidPunchData(PunchData punchData) {
+    private boolean isValidPunchData(PunchingDetailsDTO punchData) {
         return isValidEmail(punchData.getUserEmail()) && isValidDate(punchData.getPunchTime());
     }
 
@@ -66,25 +58,6 @@ public class CsvReaderService {
         return isValidDate;
     }
 
-    /*public List<PunchData> readAndValidateCsvFile(String fileName) {
-        validateFileName(fileName);
-
-        List<PunchData> validPunchDataList = new ArrayList<>();
-
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(getClass().getResourceAsStream("/" + fileName)))
-        ) {
-            validPunchDataList = reader.lines()
-                    .skip(1)
-                    .map(this::parseLine)
-                    .filter(this::isValidPunchData)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return validPunchDataList;
-    }*/
     private void validateFileName(String fileName) {
         if (!AppConstant.FILE_NAME_PATTERN.matcher(fileName).matches()) {
             throw new IllegalArgumentException(
@@ -93,11 +66,11 @@ public class CsvReaderService {
         }
     }
 
-    private Map<String, List<Date>> groupPunchTimesByUser(List<PunchData> punchDataList) throws ParseException {
+    private Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) throws ParseException {
         Map<String, List<Date>> userPunchTimes = new HashMap<>();
         SimpleDateFormat sdf = new SimpleDateFormat(AppConstant.DATE_FORMAT);
 
-        for (PunchData punchData : punchDataList) {
+        for (PunchingDetailsDTO punchData : punchDataList) {
             String userEmail = punchData.getUserEmail();
             Date punchTime = sdf.parse(punchData.getPunchTime());
 
@@ -120,15 +93,15 @@ public class CsvReaderService {
             Date punchIn = times.get(0);
             Date punchOut = times.get(times.size() - 1);
 
-            PunchLog punchLog = new PunchLog();
-            punchLog.setUserEmail(userEmail);
-            punchLog.setPunchDate(punchIn);
-            punchLog.setPunchInTime(punchIn);
-            punchLog.setPunchOutTime(punchOut);
+            PunchingDetails punchingDetails = new PunchingDetails();
+            punchingDetails.setUserEmail(userEmail);
+            punchingDetails.setPunchDate(punchIn);
+            punchingDetails.setPunchInTime(punchIn);
+            punchingDetails.setPunchOutTime(punchOut);
 
             // Check for duplicate data
             if (punchLogRepository.findByUserEmailAndPunchDate(userEmail, punchIn).isEmpty()) {
-                punchLogRepository.save(punchLog);
+                punchLogRepository.save(punchingDetails);
             }
         }
     }

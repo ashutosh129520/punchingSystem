@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class PunchData {
+public class PunchingDetailsDTO {
     private String userEmail;
     private String punchTime;
 

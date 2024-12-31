@@ -16,6 +16,8 @@ public class CsvController {
 
     @GetMapping("/read-csv")
     public List<PunchData> readCsv() {
-        return csvReaderService.readCsvFile();
+        String fileName = "";
+        return csvReaderService.readCsvFile(fileName);
     }
+
 }

@@ -1,0 +1,38 @@
+server:
+  port: 8081
+  session:
+    cookie:
+      secure: true
+spring.freemarker.template-loader-path: classpath:/ftl
+spring.freemarker.suffix: .ftl
+
+spring:
+  jpa:
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        order_inserts: true
+        jdbc:
+          batch_size: 100
+      javax:
+        persistence:
+          sharedCache:
+            mode: ENABLE_SELECTIVE
+    hibernate:
+      ddl-auto: none
+      enable_lazy_load_no_trans: true
+    devtools:
+      livereload:
+        enabled: true
+    datasource:
+      url: jdbc:mysql://localhost:3306/localDb?autoReconnect=true&useSSL=false&useUnicode=yes&characterEncoding=UTF-8&useLegacyDatetimeCode=false&serverTimezone=UTC
+      username: root
+      password: root
+      initial-size: 2
+      max-idle: 2
+      min-idle: 1
+      test-while-idle: true
+      test-on-borrow: true
+      validation-query: SELECT 1
+      show-sql: true

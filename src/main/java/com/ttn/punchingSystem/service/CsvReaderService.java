@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -21,40 +23,35 @@ public class CsvReaderService {
     @Autowired
     private PunchLogRepository punchLogRepository;
 
-    public List<PunchData> readCsvFile(String fileName) {
+    public List<PunchData> readCsvFile(String filePath) throws ParseException {
         List<PunchData> punchDataList = new ArrayList<>();
-
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(getClass().getResourceAsStream(fileName)))
-        ) {
-            readAndValidateCsvFile(fileName);
-            // Skip header and parse the rest
-            punchDataList = reader.lines()
-                    .skip(1)
-                    .map(line -> {
-                        String[] fields = line.split(",");
-                        PunchData punchData = new PunchData();
-                        punchData.setUserEmail(fields[0].trim());
-                        punchData.setPunchTime(fields[1].trim());
-                        return punchData;
-                    })
-                    .collect(Collectors.toList());
+        validateFileName(filePath);
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            br.readLine();
+            while ((line = br.readLine()) != null) {
+                String[] data = line.split(",");
+                PunchData punchData = new PunchData(data[0], data[1]);
+                if (isValidPunchData(punchData)) {
+                    punchDataList.add(punchData);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
+        }
             Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
             saveProcessedPunchLogs(userPunchTimes);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
 
         return punchDataList;
     }
 
-    private PunchData parseLine(String line) {
+    /*private PunchData parseLine(String line) {
         String[] fields = line.split(",");
         PunchData punchData = new PunchData();
         punchData.setUserEmail(fields[0].trim());
         punchData.setPunchTime(fields[1].trim());
         return punchData;
-    }
+    }*/
 
     private boolean isValidPunchData(PunchData punchData) {
         return isValidEmail(punchData.getUserEmail()) && isValidDate(punchData.getPunchTime());
@@ -69,7 +66,7 @@ public class CsvReaderService {
         return isValidDate;
     }
 
-    public List<PunchData> readAndValidateCsvFile(String fileName) {
+    /*public List<PunchData> readAndValidateCsvFile(String fileName) {
         validateFileName(fileName);
 
         List<PunchData> validPunchDataList = new ArrayList<>();
@@ -87,7 +84,7 @@ public class CsvReaderService {
         }
 
         return validPunchDataList;
-    }
+    }*/
     private void validateFileName(String fileName) {
         if (!AppConstant.FILE_NAME_PATTERN.matcher(fileName).matches()) {
             throw new IllegalArgumentException(

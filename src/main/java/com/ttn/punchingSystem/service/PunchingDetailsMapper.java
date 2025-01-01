@@ -11,14 +11,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-@Mapper
+@Mapper(componentModel = "spring")
 public interface PunchingDetailsMapper {
 
     PunchingDetailsMapper INSTANCE = Mappers.getMapper(PunchingDetailsMapper.class);
 
     @Mapping(source = "key", target = "userEmail")
-    @Mapping(expression = "java(value.get(0))", target = "punchIn")
-    @Mapping(expression = "java(value.get(value.size() - 1))", target = "punchOut")
+    @Mapping(expression = "java(entry.getValue().get(0))", target = "punchIn")
+    @Mapping(expression = "java(entry.getValue().get(entry.getValue().size() - 1))", target = "punchOut")
     PunchDetailsWrapper mapToWrapper(Map.Entry<String, List<Date>> entry);
 
     @Mapping(source = "wrapper.userEmail", target = "userEmail")

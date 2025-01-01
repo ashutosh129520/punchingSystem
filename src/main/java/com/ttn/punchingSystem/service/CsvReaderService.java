@@ -7,6 +7,7 @@ import com.ttn.punchingSystem.model.WorkScheduleDetails;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
 import com.ttn.punchingSystem.repository.WorkScheduleRepository;
 import com.ttn.punchingSystem.utils.AppConstant;
+import com.ttn.punchingSystem.utils.CsvValidationException;
 import com.ttn.punchingSystem.utils.DateUtil;
 import com.ttn.punchingSystem.utils.InvalidPunchTimeException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,19 +37,31 @@ public class CsvReaderService {
 
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
+        List<String> errorList = new ArrayList<>();
         validateFileName(filePath);
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             br.readLine();
             while ((line = br.readLine()) != null) {
                 String[] data = line.split(",");
-                PunchingDetailsDTO punchingDetailsDTO = new PunchingDetailsDTO(data[0], data[1]);
-                if (isValidPunchData(punchingDetailsDTO)) {
-                    punchDataList.add(punchingDetailsDTO);
+                if (data.length < 2) {
+                    errorList.add("Invalid row format: " + line);
+                    continue;
                 }
+                PunchingDetailsDTO punchingDetailsDTO = new PunchingDetailsDTO(data[0], data[1]);
+                if (!isValidPunchData(punchingDetailsDTO, errorList)) {
+                    continue;
+                }
+                punchDataList.add(punchingDetailsDTO);
+                /*if (isValidPunchData(punchingDetailsDTO)) {
+                    punchDataList.add(punchingDetailsDTO);
+                }*/
             }
         } catch (IOException e) {
             throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
+        }
+        if (!errorList.isEmpty()) {
+            throw new CsvValidationException(errorList);
         }
         Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
         Map<String, WorkScheduleDetails> workScheduleMap = fetchWorkScheduleUsersBasedOnEmailId(userPunchTimes);
@@ -63,18 +76,27 @@ public class CsvReaderService {
         return workScheduleMap;
     }
 
-    private boolean isValidPunchData(PunchingDetailsDTO punchData) {
-        return isValidEmail(punchData.getUserEmail()) && isValidDate(punchData.getPunchTime());
+    private boolean isValidPunchData(PunchingDetailsDTO punchingDetailsDTO, List<String> errorList) {
+        boolean isValid = true;
+        if (!isValidEmail(punchingDetailsDTO.getUserEmail())) {
+            errorList.add("Invalid email: " + punchingDetailsDTO.getUserEmail());
+            isValid = false;
+        }
+        if (!DateUtil.isValidDateFormat(punchingDetailsDTO.getPunchTime())) {
+            errorList.add("Invalid date format: " + punchingDetailsDTO.getPunchTime());
+            isValid = false;
+        }
+        return isValid;
     }
 
     private boolean isValidEmail(String email) {
         return AppConstant.EMAIL_PATTERN.matcher(email).matches();
     }
 
-    private boolean isValidDate(String dateStr) {
+    /*private boolean isValidDate(String dateStr) {
         boolean isValidDate = DateUtil.isValidDateFormat(dateStr);
         return isValidDate;
-    }
+    }*/
 
     private void validateFileName(String filePath) {
         String fileName = extractFileName(filePath);

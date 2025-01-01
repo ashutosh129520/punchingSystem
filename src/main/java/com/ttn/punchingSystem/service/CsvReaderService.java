@@ -1,10 +1,14 @@
 package com.ttn.punchingSystem.service;
 
-import com.ttn.punchingSystem.model.PunchingDetailsDTO;
+import com.ttn.punchingSystem.model.PunchDetailsWrapper;
 import com.ttn.punchingSystem.model.PunchingDetails;
+import com.ttn.punchingSystem.model.PunchingDetailsDTO;
+import com.ttn.punchingSystem.model.WorkScheduleDetails;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
+import com.ttn.punchingSystem.repository.WorkScheduleRepository;
 import com.ttn.punchingSystem.utils.AppConstant;
 import com.ttn.punchingSystem.utils.DateUtil;
+import com.ttn.punchingSystem.utils.InvalidPunchTimeException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,15 +17,22 @@ import org.springframework.stereotype.Service;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class CsvReaderService {
 
     @Autowired
     private PunchLogRepository punchLogRepository;
+    @Autowired
+    private WorkScheduleRepository workScheduleRepository;
+
+    SimpleDateFormat sdf = new SimpleDateFormat(AppConstant.DATE_FORMAT);
 
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
@@ -39,10 +50,17 @@ public class CsvReaderService {
         } catch (IOException e) {
             throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
         }
-            Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
-            saveProcessedPunchLogs(userPunchTimes);
-
+        Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
+        Map<String, WorkScheduleDetails> workScheduleMap = fetchWorkScheduleUsersBasedOnEmailId(userPunchTimes);
+        saveProcessedPunchLogs(userPunchTimes);
         return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
+    }
+
+    private Map<String, WorkScheduleDetails> fetchWorkScheduleUsersBasedOnEmailId(Map<String, List<Date>> userPunchTimes) {
+        Set<String> userEmails = userPunchTimes.keySet();
+        Set<WorkScheduleDetails> workSchedules = workScheduleRepository.findAllByUserEmailIn(userEmails);
+        Map<String, WorkScheduleDetails> workScheduleMap = workSchedules.stream().collect(Collectors.toMap(WorkScheduleDetails::getUserEmail, ws -> ws));
+        return workScheduleMap;
     }
 
     private boolean isValidPunchData(PunchingDetailsDTO punchData) {
@@ -58,49 +76,53 @@ public class CsvReaderService {
         return isValidDate;
     }
 
-    private void validateFileName(String fileName) {
+    private void validateFileName(String filePath) {
+        String fileName = extractFileName(filePath);
         if (!AppConstant.FILE_NAME_PATTERN.matcher(fileName).matches()) {
-            throw new IllegalArgumentException(
-                    "Invalid file name format. Expected format: 19Oct2024_punchdetails.csv"
-            );
+            throw new IllegalArgumentException("Invalid file name format. Expected format: 19Oct2024_punchdetails.csv");
         }
     }
 
-    private Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) throws ParseException {
-        Map<String, List<Date>> userPunchTimes = new HashMap<>();
-        SimpleDateFormat sdf = new SimpleDateFormat(AppConstant.DATE_FORMAT);
+    private String extractFileName(String filePath) {
+        Path path = Paths.get(filePath);
+        return path.getFileName().toString(); // Extracts and returns only the file name
+    }
 
-        for (PunchingDetailsDTO punchData : punchDataList) {
-            String userEmail = punchData.getUserEmail();
-            Date punchTime = sdf.parse(punchData.getPunchTime());
-
-            userPunchTimes
-                    .computeIfAbsent(userEmail, k -> new ArrayList<>())
-                    .add(punchTime);
+    private Date parsePunchTime(String punchTimeStr, SimpleDateFormat sdf) throws InvalidPunchTimeException {
+        try {
+            return sdf.parse(punchTimeStr);
+        } catch (ParseException e) {
+            throw new InvalidPunchTimeException("Invalid punch time format: " + punchTimeStr, e);
         }
+    }
 
-        userPunchTimes.values().forEach(Collections::sort);
-        return userPunchTimes;
+    private Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) {
+        return punchDataList.stream()
+                .map(punchData -> {
+                    try {
+                        return new AbstractMap.SimpleEntry<>(punchData.getUserEmail(), parsePunchTime(punchData.getPunchTime(), sdf));
+                    } catch (InvalidPunchTimeException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.groupingBy(
+                        Map.Entry::getKey,
+                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())
+                ))
+                .entrySet().stream()
+                .peek(entry -> Collections.sort(entry.getValue()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) {
         for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
-            String userEmail = entry.getKey();
             List<Date> times = entry.getValue();
-
             if (times.isEmpty()) continue;
-
-            Date punchIn = times.get(0);
-            Date punchOut = times.get(times.size() - 1);
-
+            PunchDetailsWrapper wrapper = PunchingDetailsMapper.INSTANCE.mapToWrapper(entry);
             PunchingDetails punchingDetails = new PunchingDetails();
-            punchingDetails.setUserEmail(userEmail);
-            punchingDetails.setPunchDate(punchIn);
-            punchingDetails.setPunchInTime(punchIn);
-            punchingDetails.setPunchOutTime(punchOut);
-
+            PunchingDetailsMapper.INSTANCE.updatePunchingDetails(punchingDetails, wrapper);
             // Check for duplicate data
-            if (punchLogRepository.findByUserEmailAndPunchDate(userEmail, punchIn).isEmpty()) {
+            if (punchLogRepository.findByUserEmailAndPunchDate(wrapper.getUserEmail(), wrapper.getPunchIn()).isEmpty()) {
                 punchLogRepository.save(punchingDetails);
             }
         }

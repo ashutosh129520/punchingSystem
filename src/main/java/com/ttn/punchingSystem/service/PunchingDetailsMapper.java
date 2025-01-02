@@ -18,7 +18,7 @@ public interface PunchingDetailsMapper {
 
     @Mapping(source = "key", target = "userEmail")
     @Mapping(expression = "java(entry.getValue().get(0))", target = "punchIn")
-    @Mapping(expression = "java(entry.getValue().get(entry.getValue().size() - 1))", target = "punchOut")
+    @Mapping(expression = "java(entry.getValue().size() > 1 ? entry.getValue().get(entry.getValue().size() - 1) : null)", target = "punchOut")
     PunchDetailsWrapper mapToWrapper(Map.Entry<String, List<Date>> entry);
 
     @Mapping(source = "wrapper.userEmail", target = "userEmail")

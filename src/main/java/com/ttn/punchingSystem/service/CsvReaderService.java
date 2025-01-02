@@ -35,7 +35,7 @@ public class CsvReaderService {
 
     SimpleDateFormat sdf = new SimpleDateFormat(AppConstant.DATE_FORMAT);
 
-    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException {
+    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException, InvalidPunchTimeException {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
         validateFileName(filePath);
@@ -136,7 +136,7 @@ public class CsvReaderService {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) {
+    /*private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) {
         for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
             List<Date> times = entry.getValue();
             if (times.isEmpty()) continue;
@@ -146,6 +146,54 @@ public class CsvReaderService {
             // Check for duplicate data
             if (punchLogRepository.findByUserEmailAndPunchDate(wrapper.getUserEmail(), wrapper.getPunchIn()).isEmpty()) {
                 punchLogRepository.save(punchingDetails);
+            }
+        }
+    }*/
+    private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) throws ParseException, InvalidPunchTimeException {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd yyyy HH:mm");
+        Map<String, PunchingDetails> processedLogs = new HashMap<>();
+
+            for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
+                String userEmail = entry.getKey();
+                List<Date> times = entry.getValue();
+
+                if (times.isEmpty()) continue;
+
+                Date punchIn = times.get(0);
+                Date punchOut = times.size() > 1 ? entry.getValue().get(times.size() - 1) : null;
+
+                String punchInDate = sdf.format(punchIn);
+                String punchOutDate = punchOut != null ? sdf.format(punchOut) : punchInDate;
+
+                if (!isSameDay(punchIn, punchOut)) {
+                    throw new InvalidPunchTimeException("Invalid punch time in csv file for user: " + userEmail);
+                }
+                // Prepare PunchingDetails object
+                PunchingDetails punchingDetails = new PunchingDetails();
+                punchingDetails.setUserEmail(userEmail);
+                punchingDetails.setPunchDate(punchIn);
+                punchingDetails.setPunchInTime(punchIn);
+                punchingDetails.setPunchOutTime(punchOut);
+
+                // Save only unique punch details
+                if (!processedLogs.containsKey(userEmail + punchInDate)) {
+                    processedLogs.put(userEmail + punchInDate, punchingDetails);
+                }
+            }
+        // Save logs to the repository
+        saveLogsToRepository(processedLogs.values());
+    }
+
+    private static boolean isSameDay(Date date1, Date date2) {
+        SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd");
+        return dayFormat.format(date1).equals(dayFormat.format(date2));
+    }
+
+    private void saveLogsToRepository(Collection<PunchingDetails> logs) {
+        for (PunchingDetails log : logs) {
+            if (punchLogRepository.findByUserEmailAndPunchDate(log.getUserEmail(), log.getPunchDate()).isEmpty()) {
+                punchLogRepository.save(log);
             }
         }
     }

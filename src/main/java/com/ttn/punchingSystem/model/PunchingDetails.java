@@ -13,8 +13,6 @@ public class PunchingDetails {
 
     private String userEmail;
 
-    private Long projectId;
-
     @Temporal(TemporalType.DATE)
     private Date punchDate;
 

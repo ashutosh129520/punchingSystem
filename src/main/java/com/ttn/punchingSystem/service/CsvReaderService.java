@@ -38,7 +38,7 @@ public class CsvReaderService {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
         String fileName = validateFileName(filePath);
-        punchDataList = readCsvFileIntoDTO(punchDataList, filePath, errorList);
+        punchDataList = readCsvFileIntoDTO(punchDataList, filePath, errorList, fileName);
         if (!errorList.isEmpty()) {
             throw new CsvValidationException(errorList);
         }
@@ -48,7 +48,7 @@ public class CsvReaderService {
         return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
     }
 
-    private List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, String filePath, List<String> errorList){
+    private List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, String filePath, List<String> errorList, String fileName){
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             br.readLine();
@@ -62,12 +62,12 @@ public class CsvReaderService {
                         (data[0] == null || data[0].isEmpty()) ? null : data[0],
                         (data[1] == null || data[1].isEmpty()) ? null : data[1]
                 );
-                if (!isValidPunchData(punchingDetailsDTO, errorList)) {
+                if (!isValidPunchData(punchingDetailsDTO, fileName, errorList)) {
                     continue;
                 }
                 punchDataList.add(punchingDetailsDTO);
             }
-        } catch (IOException e) {
+        } catch (IOException | ParseException e) {
             throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
         }
         return punchDataList;
@@ -80,11 +80,16 @@ public class CsvReaderService {
         return workScheduleMap;
     }
 
-    private boolean isValidPunchData(PunchingDetailsDTO punchingDetailsDTO, List<String> errorList) {
+    private boolean isValidPunchData(PunchingDetailsDTO punchingDetailsDTO, String fileName, List<String> errorList) throws ParseException {
         boolean isValid = true;
+        fileName = DateUtil.parseFileNameDate(fileName);
+        String punchInDate = DateUtil.parsePunchDate(punchingDetailsDTO.getPunchTime());
         if (!isValidEmail(punchingDetailsDTO.getUserEmail())) {
             errorList.add("Invalid email: " + punchingDetailsDTO.getUserEmail());
             isValid = false;
+        }
+        if(!fileName.equals(punchInDate)){
+            errorList.add("PunchedDate does not correspond to fileDate" + punchingDetailsDTO.getPunchTime());
         }
         if (!DateUtil.isValidDateFormat(punchingDetailsDTO.getPunchTime())) {
             errorList.add("Invalid date format: " + punchingDetailsDTO.getPunchTime());
@@ -110,64 +115,57 @@ public class CsvReaderService {
         return path.getFileName().toString();
     }
 
-    private Date parsePunchTime(String punchTimeStr, SimpleDateFormat sdf) throws InvalidPunchTimeException {
-        try {
-            return sdf.parse(punchTimeStr);
-        } catch (ParseException e) {
-            throw new InvalidPunchTimeException("Invalid punch time format: " + punchTimeStr, e);
+    private Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) throws ParseException {
+        Map<String, List<Date>> userPunchTimes = new HashMap<>();
+        SimpleDateFormat sdf = new SimpleDateFormat(AppConstant.DATE_FORMAT);
+        for (PunchingDetailsDTO punchData : punchDataList) {
+            String userEmail = punchData.getUserEmail();
+            Date punchTime = sdf.parse(punchData.getPunchTime());
+            if(!userPunchTimes.containsKey(userEmail)){
+                userPunchTimes.put(userEmail, new ArrayList<>());
+            }
+            userPunchTimes.get(userEmail).add(punchTime);
         }
-    }
-
-    private Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) {
-        return punchDataList.stream()
-                .map(punchData -> {
-                    try {
-                        return new AbstractMap.SimpleEntry<>(punchData.getUserEmail(), parsePunchTime(punchData.getPunchTime(), sdf));
-                    } catch (InvalidPunchTimeException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .collect(Collectors.groupingBy(
-                        Map.Entry::getKey,
-                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())
-                ))
-                .entrySet().stream()
-                .peek(entry -> Collections.sort(entry.getValue()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        userPunchTimes.values().forEach(Collections::sort);
+        return userPunchTimes;
     }
 
     private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) throws ParseException, InvalidPunchTimeException {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        Map<String, PunchingDetails> processedLogs = new HashMap<>();
+        //Map<String, PunchingDetails> processedLogs = new HashMap<>();
+        List<PunchingDetails> processedLogs = new ArrayList<>();
             for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
                 String userEmail = entry.getKey();
                 List<Date> times = entry.getValue();
                 if (times.isEmpty()) continue;
                 Date punchIn = times.get(0);
                 Date punchOut = times.size() > 1 ? entry.getValue().get(times.size() - 1) : null;
-                String punchInDate = sdf.format(punchIn);
                 if(validateTimes(punchIn, punchOut, userEmail)) {
                     PunchingDetails punchingDetails = new PunchingDetails();
                     punchingDetails.setUserEmail(userEmail);
                     punchingDetails.setPunchDate(punchIn);
                     punchingDetails.setPunchInTime(punchIn);
                     punchingDetails.setPunchOutTime(punchOut);
-                    if (!processedLogs.containsKey(userEmail + punchInDate)) {
-                        processedLogs.put(userEmail + punchInDate, punchingDetails);
-                    }
+                    processedLogs.add(punchingDetails);
                 }
             }
-        saveLogsToRepository(processedLogs.values());
+        saveLogsToRepository(processedLogs);
     }
 
     private static boolean isSameDay(Date date1, Date date2) {
         SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd");
-        return dayFormat.format(date1).equals(dayFormat.format(date2));
+        if(Objects.nonNull(date1) && Objects.nonNull(date2)) {
+            return dayFormat.format(date1).equals(dayFormat.format(date2));
+        }
+        return true;
     }
 
     private boolean validateTimes(Date punchIn, Date punchOut, String userEmail) throws InvalidPunchTimeException {
         if (!isSameDay(punchIn, punchOut)) {
             throw new InvalidPunchTimeException("Invalid punch time in csv file for user: " + userEmail);
+        }
+        if(Objects.isNull(punchOut) && Objects.nonNull(punchIn)){
+            return true;
         }
         // Check if punchOut time is valid for the same day
         if (punchOut.before(punchIn)) {
@@ -192,9 +190,12 @@ public class CsvReaderService {
                     existingLog.setPunchInTime(log.getPunchInTime());
                     isUpdated = true;
                 }
-                if (!log.getPunchOutTime().equals(existingLog.getPunchOutTime())) {
-                    existingLog.setPunchOutTime(log.getPunchOutTime());
-                    isUpdated = true;
+                if(Objects.isNull(log.getPunchOutTime())) {
+                        existingLog.setPunchOutTime(null);
+                        isUpdated = true;
+                }else if(!log.getPunchOutTime().equals(existingLog.getPunchOutTime())){
+                        existingLog.setPunchOutTime(log.getPunchOutTime());
+                        isUpdated = true;
                 }
                 if (isUpdated) {
                     punchLogRepository.save(existingLog);

@@ -1,6 +1,5 @@
 package com.ttn.punchingSystem.service;
 
-import com.ttn.punchingSystem.model.PunchDetailsWrapper;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
@@ -151,43 +150,54 @@ public class CsvReaderService {
     }*/
     private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) throws ParseException, InvalidPunchTimeException {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd yyyy HH:mm");
         Map<String, PunchingDetails> processedLogs = new HashMap<>();
-
             for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
                 String userEmail = entry.getKey();
                 List<Date> times = entry.getValue();
-
                 if (times.isEmpty()) continue;
-
                 Date punchIn = times.get(0);
                 Date punchOut = times.size() > 1 ? entry.getValue().get(times.size() - 1) : null;
-
                 String punchInDate = sdf.format(punchIn);
-                String punchOutDate = punchOut != null ? sdf.format(punchOut) : punchInDate;
-
-                if (!isSameDay(punchIn, punchOut)) {
-                    throw new InvalidPunchTimeException("Invalid punch time in csv file for user: " + userEmail);
-                }
-                // Prepare PunchingDetails object
-                PunchingDetails punchingDetails = new PunchingDetails();
-                punchingDetails.setUserEmail(userEmail);
-                punchingDetails.setPunchDate(punchIn);
-                punchingDetails.setPunchInTime(punchIn);
-                punchingDetails.setPunchOutTime(punchOut);
-
-                // Save only unique punch details
-                if (!processedLogs.containsKey(userEmail + punchInDate)) {
-                    processedLogs.put(userEmail + punchInDate, punchingDetails);
+                //String punchOutDate = punchOut != null ? sdf.format(punchOut) : punchInDate;
+                if(validateTimes(punchIn, punchOut, userEmail)) {
+                    PunchingDetails punchingDetails = new PunchingDetails();
+                    punchingDetails.setUserEmail(userEmail);
+                    punchingDetails.setPunchDate(punchIn);
+                    punchingDetails.setPunchInTime(punchIn);
+                    punchingDetails.setPunchOutTime(punchOut);
+                    if (!processedLogs.containsKey(userEmail + punchInDate)) {
+                        processedLogs.put(userEmail + punchInDate, punchingDetails);
+                    }
                 }
             }
-        // Save logs to the repository
         saveLogsToRepository(processedLogs.values());
     }
 
     private static boolean isSameDay(Date date1, Date date2) {
         SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd");
         return dayFormat.format(date1).equals(dayFormat.format(date2));
+    }
+
+    private boolean validateTimes(Date punchIn, Date punchOut, String userEmail) throws InvalidPunchTimeException {
+        if (!isSameDay(punchIn, punchOut)) {
+            throw new InvalidPunchTimeException("Invalid punch time in csv file for user: " + userEmail);
+        }
+        // Check if punchOut time is valid for the same day
+        if (punchOut.before(punchIn)) {
+            System.out.println("Invalid: punchOut cannot be before punchIn for the same day.");
+            return false;
+        }
+        return false;
+    }
+
+    private static boolean isInvalidAmPmCombination(String originalTime, String formattedTime) {
+        // Match invalid combinations like 18:00 AM or 09:00 PM
+        if (originalTime.contains("AM")) {
+            return formattedTime.matches("0[0-9]:.*|1[0-1]:.*|12:.*"); // Valid for 12-hour AM format
+        } else if (originalTime.contains("PM")) {
+            return formattedTime.matches("12:.*|1[3-9]:.*|2[0-3]:.*"); // Valid for 12-hour PM format
+        }
+        return false;
     }
 
     private void saveLogsToRepository(Collection<PunchingDetails> logs) {

@@ -52,9 +52,6 @@ public class CsvReaderService {
                     continue;
                 }
                 punchDataList.add(punchingDetailsDTO);
-                /*if (isValidPunchData(punchingDetailsDTO)) {
-                    punchDataList.add(punchingDetailsDTO);
-                }*/
             }
         } catch (IOException e) {
             throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
@@ -92,11 +89,6 @@ public class CsvReaderService {
         return AppConstant.EMAIL_PATTERN.matcher(email).matches();
     }
 
-    /*private boolean isValidDate(String dateStr) {
-        boolean isValidDate = DateUtil.isValidDateFormat(dateStr);
-        return isValidDate;
-    }*/
-
     private void validateFileName(String filePath) {
         String fileName = extractFileName(filePath);
         if (!AppConstant.FILE_NAME_PATTERN.matcher(fileName).matches()) {
@@ -106,7 +98,7 @@ public class CsvReaderService {
 
     private String extractFileName(String filePath) {
         Path path = Paths.get(filePath);
-        return path.getFileName().toString(); // Extracts and returns only the file name
+        return path.getFileName().toString();
     }
 
     private Date parsePunchTime(String punchTimeStr, SimpleDateFormat sdf) throws InvalidPunchTimeException {
@@ -135,19 +127,6 @@ public class CsvReaderService {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    /*private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) {
-        for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
-            List<Date> times = entry.getValue();
-            if (times.isEmpty()) continue;
-            PunchDetailsWrapper wrapper = PunchingDetailsMapper.INSTANCE.mapToWrapper(entry);
-            PunchingDetails punchingDetails = new PunchingDetails();
-            PunchingDetailsMapper.INSTANCE.updatePunchingDetails(punchingDetails, wrapper);
-            // Check for duplicate data
-            if (punchLogRepository.findByUserEmailAndPunchDate(wrapper.getUserEmail(), wrapper.getPunchIn()).isEmpty()) {
-                punchLogRepository.save(punchingDetails);
-            }
-        }
-    }*/
     private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) throws ParseException, InvalidPunchTimeException {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         Map<String, PunchingDetails> processedLogs = new HashMap<>();
@@ -186,16 +165,6 @@ public class CsvReaderService {
         if (punchOut.before(punchIn)) {
             System.out.println("Invalid: punchOut cannot be before punchIn for the same day.");
             return false;
-        }
-        return false;
-    }
-
-    private static boolean isInvalidAmPmCombination(String originalTime, String formattedTime) {
-        // Match invalid combinations like 18:00 AM or 09:00 PM
-        if (originalTime.contains("AM")) {
-            return formattedTime.matches("0[0-9]:.*|1[0-1]:.*|12:.*"); // Valid for 12-hour AM format
-        } else if (originalTime.contains("PM")) {
-            return formattedTime.matches("12:.*|1[3-9]:.*|2[0-3]:.*"); // Valid for 12-hour PM format
         }
         return false;
     }

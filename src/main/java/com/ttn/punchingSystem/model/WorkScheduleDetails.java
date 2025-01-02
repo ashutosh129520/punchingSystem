@@ -25,9 +25,8 @@ public class WorkScheduleDetails {
     @Column(name = "work_shift", nullable = false)
     private String workShift;
 
-    @Column(name = "office_days")
+    @Column(name = "office_days", nullable = false)
     private String officeDays;
 
-    // Getters and Setters
 }
 

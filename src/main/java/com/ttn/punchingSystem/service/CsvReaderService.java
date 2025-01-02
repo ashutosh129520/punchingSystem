@@ -37,7 +37,18 @@ public class CsvReaderService {
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException, InvalidPunchTimeException {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
-        validateFileName(filePath);
+        String fileName = validateFileName(filePath);
+        punchDataList = readCsvFileIntoDTO(punchDataList, filePath, errorList);
+        if (!errorList.isEmpty()) {
+            throw new CsvValidationException(errorList);
+        }
+        Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
+        Map<String, WorkScheduleDetails> workScheduleMap = fetchWorkScheduleUsersBasedOnEmailId(userPunchTimes);
+        saveProcessedPunchLogs(userPunchTimes);
+        return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
+    }
+
+    private List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, String filePath, List<String> errorList){
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             br.readLine();
@@ -47,7 +58,10 @@ public class CsvReaderService {
                     errorList.add("Invalid row format: " + line);
                     continue;
                 }
-                PunchingDetailsDTO punchingDetailsDTO = new PunchingDetailsDTO(data[0], data[1]);
+                PunchingDetailsDTO punchingDetailsDTO = new PunchingDetailsDTO(
+                        (data[0] == null || data[0].isEmpty()) ? null : data[0],
+                        (data[1] == null || data[1].isEmpty()) ? null : data[1]
+                );
                 if (!isValidPunchData(punchingDetailsDTO, errorList)) {
                     continue;
                 }
@@ -56,13 +70,7 @@ public class CsvReaderService {
         } catch (IOException e) {
             throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
         }
-        if (!errorList.isEmpty()) {
-            throw new CsvValidationException(errorList);
-        }
-        Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
-        Map<String, WorkScheduleDetails> workScheduleMap = fetchWorkScheduleUsersBasedOnEmailId(userPunchTimes);
-        saveProcessedPunchLogs(userPunchTimes);
-        return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
+        return punchDataList;
     }
 
     private Map<String, WorkScheduleDetails> fetchWorkScheduleUsersBasedOnEmailId(Map<String, List<Date>> userPunchTimes) {
@@ -89,11 +97,12 @@ public class CsvReaderService {
         return AppConstant.EMAIL_PATTERN.matcher(email).matches();
     }
 
-    private void validateFileName(String filePath) {
+    private String validateFileName(String filePath) {
         String fileName = extractFileName(filePath);
         if (!AppConstant.FILE_NAME_PATTERN.matcher(fileName).matches()) {
-            throw new IllegalArgumentException("Invalid file name format. Expected format: 19Oct2024_punchdetails.csv");
+            throw new IllegalArgumentException("Invalid file name format. Expected format: 01Jan2024_punchdetails.csv");
         }
+        return fileName;
     }
 
     private String extractFileName(String filePath) {
@@ -137,7 +146,6 @@ public class CsvReaderService {
                 Date punchIn = times.get(0);
                 Date punchOut = times.size() > 1 ? entry.getValue().get(times.size() - 1) : null;
                 String punchInDate = sdf.format(punchIn);
-                //String punchOutDate = punchOut != null ? sdf.format(punchOut) : punchInDate;
                 if(validateTimes(punchIn, punchOut, userEmail)) {
                     PunchingDetails punchingDetails = new PunchingDetails();
                     punchingDetails.setUserEmail(userEmail);
@@ -166,13 +174,31 @@ public class CsvReaderService {
             System.out.println("Invalid: punchOut cannot be before punchIn for the same day.");
             return false;
         }
-        return false;
+        return true;
     }
 
     private void saveLogsToRepository(Collection<PunchingDetails> logs) {
         for (PunchingDetails log : logs) {
-            if (punchLogRepository.findByUserEmailAndPunchDate(log.getUserEmail(), log.getPunchDate()).isEmpty()) {
+            List<PunchingDetails> existingLogs = punchLogRepository.findByUserEmailAndPunchDate(
+                    log.getUserEmail(),
+                    log.getPunchDate()
+            );
+            if (existingLogs.isEmpty()) {
                 punchLogRepository.save(log);
+            }else {
+                PunchingDetails existingLog = existingLogs.get(0);
+                boolean isUpdated = false;
+                if (!log.getPunchInTime().equals(existingLog.getPunchInTime())) {
+                    existingLog.setPunchInTime(log.getPunchInTime());
+                    isUpdated = true;
+                }
+                if (!log.getPunchOutTime().equals(existingLog.getPunchOutTime())) {
+                    existingLog.setPunchOutTime(log.getPunchOutTime());
+                    isUpdated = true;
+                }
+                if (isUpdated) {
+                    punchLogRepository.save(existingLog);
+                }
             }
         }
     }

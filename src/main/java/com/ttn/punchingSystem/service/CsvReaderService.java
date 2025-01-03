@@ -32,8 +32,6 @@ public class CsvReaderService {
     @Autowired
     private WorkScheduleRepository workScheduleRepository;
 
-    SimpleDateFormat sdf = new SimpleDateFormat(AppConstant.DATE_FORMAT);
-
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException, InvalidPunchTimeException {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
@@ -43,12 +41,12 @@ public class CsvReaderService {
             throw new CsvValidationException(errorList);
         }
         Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
-        Map<String, WorkScheduleDetails> workScheduleMap = fetchWorkScheduleUsersBasedOnEmailId(userPunchTimes);
+        //Map<String, WorkScheduleDetails> workScheduleMap = fetchWorkScheduleUsersBasedOnEmailId(userPunchTimes);
         saveProcessedPunchLogs(userPunchTimes);
         return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
     }
 
-    private List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, String filePath, List<String> errorList, String fileName){
+    public List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, String filePath, List<String> errorList, String fileName){
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
             String line;
             br.readLine();
@@ -73,7 +71,7 @@ public class CsvReaderService {
         return punchDataList;
     }
 
-    private Map<String, WorkScheduleDetails> fetchWorkScheduleUsersBasedOnEmailId(Map<String, List<Date>> userPunchTimes) {
+    public Map<String, WorkScheduleDetails> fetchWorkScheduleUsersBasedOnEmailId(Map<String, List<Date>> userPunchTimes) {
         Set<String> userEmails = userPunchTimes.keySet();
         Set<WorkScheduleDetails> workSchedules = workScheduleRepository.findAllByUserEmailIn(userEmails);
         Map<String, WorkScheduleDetails> workScheduleMap = workSchedules.stream().collect(Collectors.toMap(WorkScheduleDetails::getUserEmail, ws -> ws));
@@ -102,7 +100,7 @@ public class CsvReaderService {
         return AppConstant.EMAIL_PATTERN.matcher(email).matches();
     }
 
-    private String validateFileName(String filePath) {
+    public String validateFileName(String filePath) {
         String fileName = extractFileName(filePath);
         if (!AppConstant.FILE_NAME_PATTERN.matcher(fileName).matches()) {
             throw new IllegalArgumentException("Invalid file name format. Expected format: 01Jan2024_punchdetails.csv");
@@ -115,7 +113,7 @@ public class CsvReaderService {
         return path.getFileName().toString();
     }
 
-    private Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) throws ParseException {
+    public Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) throws ParseException {
         Map<String, List<Date>> userPunchTimes = new HashMap<>();
         SimpleDateFormat sdf = new SimpleDateFormat(AppConstant.DATE_FORMAT);
         for (PunchingDetailsDTO punchData : punchDataList) {
@@ -130,9 +128,7 @@ public class CsvReaderService {
         return userPunchTimes;
     }
 
-    private void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) throws ParseException, InvalidPunchTimeException {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        //Map<String, PunchingDetails> processedLogs = new HashMap<>();
+    public void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) throws InvalidPunchTimeException {
         List<PunchingDetails> processedLogs = new ArrayList<>();
             for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
                 String userEmail = entry.getKey();
@@ -175,7 +171,7 @@ public class CsvReaderService {
         return true;
     }
 
-    private void saveLogsToRepository(Collection<PunchingDetails> logs) {
+    public void saveLogsToRepository(Collection<PunchingDetails> logs) {
         for (PunchingDetails log : logs) {
             List<PunchingDetails> existingLogs = punchLogRepository.findByUserEmailAndPunchDate(
                     log.getUserEmail(),

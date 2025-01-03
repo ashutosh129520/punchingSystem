@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.mail.MessagingException;
 import java.text.ParseException;
 import java.util.List;
 
@@ -23,9 +24,10 @@ public class CsvController {
         return csvReaderService.readCsvFile(filePath);
     }
 
+    //Will be scheduler later
     @PostMapping("/sendEmail")
-    public ResponseEntity<List<EmailDTO>> sendEmailOfDefaulters(){
-        return null;
+    public void sendEmailOfDefaulters() throws MessagingException {
+         csvReaderService.sendEmail();
     }
 
 }

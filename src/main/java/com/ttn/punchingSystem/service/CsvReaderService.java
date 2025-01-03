@@ -10,10 +10,15 @@ import com.ttn.punchingSystem.utils.CsvValidationException;
 import com.ttn.punchingSystem.utils.DateUtil;
 import com.ttn.punchingSystem.utils.InvalidPunchTimeException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import javax.mail.*;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -26,6 +31,24 @@ import java.util.stream.Collectors;
 
 @Service
 public class CsvReaderService {
+
+    @Value("${mail.smtp.host}")
+    private String smtpHost;
+
+    @Value("${mail.smtp.port}")
+    private int smtpPort;
+
+    @Value("${mail.smtp.auth}")
+    private String smtpAuth;
+
+    @Value("${mail.smtp.starttls.enable}")
+    private String smtpStarttlsEnable;
+
+    @Value("${mail.username}")
+    private String senderEmail;
+
+    @Value("${mail.password}")
+    private String senderPassword;
 
     @Autowired
     private PunchLogRepository punchLogRepository;
@@ -198,5 +221,27 @@ public class CsvReaderService {
                 }
             }
         }
+    }
+
+    public void sendEmail() throws MessagingException {
+        Properties properties = new Properties();
+        properties.put("mail.smtp.host", smtpHost);
+        properties.put("mail.smtp.port", smtpPort);
+        properties.put("mail.smtp.auth", smtpAuth);
+        properties.put("mail.smtp.starttls.enable", smtpStarttlsEnable);
+
+        Session session = Session.getInstance(properties, new Authenticator() {
+            protected PasswordAuthentication getPasswordAuthentication(){
+                return new PasswordAuthentication(senderEmail, senderPassword);
+            }
+        });
+        Message message = new MimeMessage(session);
+        message.setFrom(new InternetAddress(senderEmail));
+        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse("ashutosh@tothenew.com"));
+        message.setSubject("Test Email");
+        message.setText("This is a test Email");
+
+        Transport.send(message);
+        System.out.println("Email sent successfully");
     }
 }

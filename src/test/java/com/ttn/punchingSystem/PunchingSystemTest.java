@@ -42,13 +42,6 @@ public class PunchingSystemTest extends TestCase {
         assert resource != null;
         String filePath = new File(resource.getFile()).getAbsolutePath();
         String mockFileName = "19Oct2024_punchdetails.csv";
-        List<PunchingDetailsDTO> mockPunchDataList = new ArrayList<>();
-        Map<String, List<Date>> mockUserPunchTimes = new HashMap<>();
-        Map<String, WorkScheduleDetails> mockWorkScheduleMap = new HashMap<>();
-        doReturn(mockFileName).when(csvReaderService).validateFileName(filePath);
-        doReturn(mockUserPunchTimes).when(csvReaderService).groupPunchTimesByUser(mockPunchDataList);
-        doReturn(mockWorkScheduleMap).when(csvReaderService).fetchWorkScheduleUsersBasedOnEmailId(mockUserPunchTimes);
-        doNothing().when(csvReaderService).saveProcessedPunchLogs(mockUserPunchTimes);
         doNothing().when(csvReaderService).saveLogsToRepository(anyList());
         ResponseEntity<List<PunchingDetailsDTO>> response = csvReaderService.readCsvFile(filePath);
         assertEquals(200, response.getStatusCodeValue());

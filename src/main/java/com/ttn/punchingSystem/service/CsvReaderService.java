@@ -64,7 +64,6 @@ public class CsvReaderService {
             throw new CsvValidationException(errorList);
         }
         Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
-        //Map<String, WorkScheduleDetails> workScheduleMap = fetchWorkScheduleUsersBasedOnEmailId(userPunchTimes);
         saveProcessedPunchLogs(userPunchTimes);
         return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
     }

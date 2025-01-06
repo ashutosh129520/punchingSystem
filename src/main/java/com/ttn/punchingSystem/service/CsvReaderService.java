@@ -1,8 +1,10 @@
 package com.ttn.punchingSystem.service;
 
+import com.ttn.punchingSystem.model.Project;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
+import com.ttn.punchingSystem.repository.ProjectRepository;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
 import com.ttn.punchingSystem.repository.WorkScheduleRepository;
 import com.ttn.punchingSystem.utils.AppConstant;
@@ -26,6 +28,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -54,6 +58,8 @@ public class CsvReaderService {
     private PunchLogRepository punchLogRepository;
     @Autowired
     private WorkScheduleRepository workScheduleRepository;
+    @Autowired
+    private ProjectRepository projectRepository;
 
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException, InvalidPunchTimeException {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
@@ -91,13 +97,6 @@ public class CsvReaderService {
             throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
         }
         return punchDataList;
-    }
-
-    public Map<String, WorkScheduleDetails> fetchWorkScheduleUsersBasedOnEmailId(Map<String, List<Date>> userPunchTimes) {
-        Set<String> userEmails = userPunchTimes.keySet();
-        Set<WorkScheduleDetails> workSchedules = workScheduleRepository.findAllByUserEmailIn(userEmails);
-        Map<String, WorkScheduleDetails> workScheduleMap = workSchedules.stream().collect(Collectors.toMap(WorkScheduleDetails::getUserEmail, ws -> ws));
-        return workScheduleMap;
     }
 
     private boolean isValidPunchData(PunchingDetailsDTO punchingDetailsDTO, String fileName, List<String> errorList) throws ParseException {
@@ -222,25 +221,57 @@ public class CsvReaderService {
         }
     }
 
-    public void sendEmail() throws MessagingException {
-        Properties properties = new Properties();
-        properties.put("mail.smtp.host", smtpHost);
-        properties.put("mail.smtp.port", smtpPort);
-        properties.put("mail.smtp.auth", smtpAuth);
-        properties.put("mail.smtp.starttls.enable", smtpStarttlsEnable);
-
-        Session session = Session.getInstance(properties, new Authenticator() {
-            protected PasswordAuthentication getPasswordAuthentication(){
-                return new PasswordAuthentication(senderEmail, senderPassword);
+    public Map<String, List<String>> processListOfDefaulters(){
+        List<String> listOfDefaulters = new ArrayList<>();
+        Map<String, List<String>> managerToDefaultersMap = new HashMap<>();
+        Map<String, List<String>> projectIdsAndDefaultersEmail = new HashMap<>();
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        Date previousDay = Date.from(yesterday.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        List<PunchingDetails> previousDayPunchingDetails = punchLogRepository.findByPunchDate(previousDay);
+        for(PunchingDetails punchingDetails : previousDayPunchingDetails){
+            Date punchInTime = punchingDetails.getPunchInTime();
+            Date punchOutTime = punchingDetails.getPunchOutTime();
+            if (punchInTime != null && punchOutTime != null) {
+                long durationInMillis = punchOutTime.getTime() - punchInTime.getTime();
+                long durationInHours = durationInMillis / (1000 * 60 * 60);
+                if (durationInHours < 6) {
+                    listOfDefaulters.add(punchingDetails.getUserEmail());
+                }
             }
-        });
-        Message message = new MimeMessage(session);
-        message.setFrom(new InternetAddress(senderEmail));
-        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse("ashutosh@tothenew.com"));
-        message.setSubject("Test Email");
-        message.setText("This is a test Email");
-
-        Transport.send(message);
-        System.out.println("Email sent successfully");
+        }
+        if(!listOfDefaulters.isEmpty()){
+            //find projectId of these userEmails from WorkSchedule
+            projectIdsAndDefaultersEmail = projectIdAndDefaultersEmailMap(listOfDefaulters);
+        }
+        if(!projectIdsAndDefaultersEmail.isEmpty()){
+            managerToDefaultersMap = reportingManagerToDefaultersMap(projectIdsAndDefaultersEmail);
+        }
+        return managerToDefaultersMap;
     }
+
+    public Map<String, List<String>> projectIdAndDefaultersEmailMap(List<String> listOfDefaulters){
+        Map<String, List<String>> projectIdsAndDefaultersEmail = new HashMap<>();
+        List<WorkScheduleDetails> workSchedules = workScheduleRepository.findAllByUserEmailIn(listOfDefaulters);
+        for (WorkScheduleDetails workSchedule : workSchedules) {
+            Long projectId = workSchedule.getProjectId();
+            String userEmail = workSchedule.getUserEmail();
+            projectIdsAndDefaultersEmail.computeIfAbsent(String.valueOf(projectId), k -> new ArrayList<>()).add(userEmail);
+        }
+        return projectIdsAndDefaultersEmail;
+    }
+
+    public Map<String, List<String>> reportingManagerToDefaultersMap(Map<String, List<String>> projectIdsAndDefaultersEmail) {
+        Map<String, List<String>> managerToDefaultersMap = new HashMap<>();
+        for (Map.Entry<String, List<String>> entry : projectIdsAndDefaultersEmail.entrySet()) {
+            String projectId = entry.getKey();
+            List<String> defaulters = entry.getValue();
+            Project project = projectRepository.findByProjectId(Long.parseLong(projectId));
+            if (Objects.nonNull(project)) {
+                managerToDefaultersMap.computeIfAbsent(project.getReportingManagerEmail(), k -> new ArrayList<>()).addAll(defaulters);
+            }
+        }
+
+        return managerToDefaultersMap;
+    }
+
 }

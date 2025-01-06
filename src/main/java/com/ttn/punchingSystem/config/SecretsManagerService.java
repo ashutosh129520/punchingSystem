@@ -2,8 +2,6 @@ package com.ttn.punchingSystem.config;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.EnvironmentVariableCredentialsProvider;
 import com.amazonaws.services.secretsmanager.AWSSecretsManager;
 import com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder;
 import com.amazonaws.services.secretsmanager.model.GetSecretValueRequest;
@@ -25,7 +23,8 @@ public class SecretsManagerService {
     @Value("${mail.aws.secretKey}")
     private String secretKey;
 
-    public SecretsManagerService() {
+    public SecretsManagerService(@Value("${mail.aws.accessKey}") String accessKey,
+                                 @Value("${mail.aws.secretKey}") String secretKey) {
         this.secretsManager = AWSSecretsManagerClientBuilder.standard()
                 .withCredentials(new AWSStaticCredentialsProvider(
                         new BasicAWSCredentials(accessKey, secretKey)))

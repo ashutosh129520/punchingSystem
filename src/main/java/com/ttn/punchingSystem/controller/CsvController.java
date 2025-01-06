@@ -15,6 +15,7 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -33,8 +34,8 @@ public class CsvController {
     //Will be scheduler later
     @PostMapping("/sendEmail")
     public void sendEmailOfDefaulters() throws MessagingException, EmailConfigurationException {
-        List<String> recipients = Arrays.asList("ashutosh.saini1295@gmail.com");
-        emailService.sendEmail(recipients);
+        Map<String, List<String>> managerToDefaultersMap = csvReaderService.processListOfDefaulters();
+       // emailService.sendEmail(managerToDefaultersMap);
     }
 
 }

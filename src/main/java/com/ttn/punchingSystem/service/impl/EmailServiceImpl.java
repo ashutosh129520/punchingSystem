@@ -38,9 +38,11 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.aws.secretsmanager.secretName}")
     private String secretName;
     private volatile JsonObject secrets;
-    @PostConstruct
-    public void init() {
-        secrets = secretsManagerService.getSecrets(secretName);
+
+    public EmailServiceImpl(SecretsManagerService secretsManagerService, @Value("${spring.aws.secretsmanager.secretName}") String secretName) {
+        this.secretsManagerService = secretsManagerService;
+        this.secretName = secretName;
+        this.secrets = secretsManagerService.getSecrets(secretName);
     }
 
     private Session createEmailSession(JsonObject secrets) throws EmailConfigurationException {

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class SecretsManagerService {
 
-    private AWSSecretsManager secretsManager;
+    private final AWSSecretsManager secretsManager;
 
     @Value("${mail.aws.accessKey}")
     private String accessKey;
@@ -33,8 +33,10 @@ public class SecretsManagerService {
     }
 
     public JsonObject getSecrets(String secretName) {
-        GetSecretValueRequest request = new GetSecretValueRequest().withSecretId(secretName);
-        GetSecretValueResult result = secretsManager.getSecretValue(request);
-        return JsonParser.parseString(result.getSecretString()).getAsJsonObject();
+        JsonObject jsonObjectSecret = null;
+            GetSecretValueRequest request = new GetSecretValueRequest().withSecretId(secretName);
+            GetSecretValueResult result = secretsManager.getSecretValue(request);
+            jsonObjectSecret = JsonParser.parseString(result.getSecretString()).getAsJsonObject();
+        return jsonObjectSecret;
     }
 }

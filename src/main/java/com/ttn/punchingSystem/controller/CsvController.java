@@ -1,6 +1,7 @@
 package com.ttn.punchingSystem.controller;
 
 import com.ttn.punchingSystem.model.EmailDTO;
+import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.service.CsvReaderService;
 import com.ttn.punchingSystem.service.EmailService;
@@ -34,8 +35,8 @@ public class CsvController {
     //Will be scheduler later
     @PostMapping("/sendEmail")
     public void sendEmailOfDefaulters() throws MessagingException, EmailConfigurationException {
-        Map<String, List<String>> managerToDefaultersMap = csvReaderService.processListOfDefaulters();
-       // emailService.sendEmail(managerToDefaultersMap);
+        Map<String, List<PunchingDetails>> managerToDefaultersMap = csvReaderService.processListOfDefaulters();
+        emailService.sendDefaultersReport(managerToDefaultersMap);
     }
 
 }

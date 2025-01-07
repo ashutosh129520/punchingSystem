@@ -22,4 +22,8 @@ public class AppConstant {
         EMAIL_KEYS.put("SENDER_PASSWORD", "Missing or invalid SENDER_PASSWORD in secrets.");
     }
     public static final String AWS_REGION = "ap-south-1";
+    public static final String DEFAULTERS_REPORT = "Defaulters Report";
+    public static final String DEFAULTERS_REPORT_NAME = "defaulters-report";
+    public static final String REPORTING_MANAGER_MAIL = "reportingManagerEmail";
+    public static final String DEFAULTERS = "defaulters";
 }

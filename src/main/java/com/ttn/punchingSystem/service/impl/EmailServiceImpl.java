@@ -1,42 +1,51 @@
 package com.ttn.punchingSystem.service.impl;
 import com.google.gson.JsonObject;
 import com.ttn.punchingSystem.config.SecretsManagerService;
+import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.service.EmailService;
 import com.ttn.punchingSystem.utils.AppConstant;
 import com.ttn.punchingSystem.utils.EmailConfigurationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
+import javax.annotation.PostConstruct;
 import javax.mail.*;
 import javax.mail.internet.*;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 @Service
 public class EmailServiceImpl implements EmailService {
 
     @Autowired
     private SecretsManagerService secretsManagerService;
+    @Autowired
+    private TemplateEngine templateEngine;
     @Value("${spring.aws.secretsmanager.secretName}")
     private String secretName;
+    private volatile JsonObject cachedSecrets;
+    @PostConstruct
+    public void init() {
+        cachedSecrets = secretsManagerService.getSecrets(secretName);
+    }
 
-    private Session createEmailSession(JsonObject secrets) throws EmailConfigurationException {
+    private Session createEmailSession(JsonObject cachedSecrets) throws EmailConfigurationException {
 
         for(Map.Entry<String, String> entry : AppConstant.EMAIL_KEYS.entrySet()){
             String key = entry.getKey();
             String errorMessage = entry.getValue();
-            if(!secrets.has(key) || secrets.get(key).getAsString().isEmpty()){
+            if(!cachedSecrets.has(key) || cachedSecrets.get(key).getAsString().isEmpty()){
                 throw new EmailConfigurationException(errorMessage);
             }
         }
-            String smtpHost = secrets.get("SMTP_HOST").getAsString();
-            String smtpPort = secrets.get("SMTP_PORT").getAsString();
-            String smtpAuth = secrets.get("SMTP_AUTH").getAsString();
-            String smtpStarttls = secrets.get("SMTP_STARTTLS").getAsString();
-            String senderEmail = secrets.get("SENDER_EMAIL").getAsString();
-            String senderPassword = secrets.get("SENDER_PASSWORD").getAsString();
+            String smtpHost = cachedSecrets.get("SMTP_HOST").getAsString();
+            String smtpPort = cachedSecrets.get("SMTP_PORT").getAsString();
+            String smtpAuth = cachedSecrets.get("SMTP_AUTH").getAsString();
+            String smtpStarttls = cachedSecrets.get("SMTP_STARTTLS").getAsString();
+            String senderEmail = cachedSecrets.get("SENDER_EMAIL").getAsString();
+            String senderPassword = cachedSecrets.get("SENDER_PASSWORD").getAsString();
             Properties properties = new Properties();
             properties.put("mail.smtp.host", smtpHost);
             properties.put("mail.smtp.port", smtpPort);
@@ -50,24 +59,44 @@ public class EmailServiceImpl implements EmailService {
             });
     }
 
-        public void sendEmail(List<String> recipients) throws MessagingException, EmailConfigurationException {
-            JsonObject secrets = secretsManagerService.getSecrets(secretName);
-            Session session = createEmailSession(secrets);
+    public void sendEmail(String secretName,
+                          List<String> recipients,
+                          String subject,
+                          String templateName,
+                          Map<String, Object> keyToValuesMap) throws MessagingException, EmailConfigurationException {
+        //JsonObject secrets = secretsManagerService.getSecrets(secretName);
+        Session session = createEmailSession(cachedSecrets);
+        String senderEmail = cachedSecrets.get("SENDER_EMAIL").getAsString();
+
+        String emailBody = generateEmailBody(templateName, keyToValuesMap);
+
+        for (String recipient : recipients) {
             Message message = new MimeMessage(session);
-            String senderEmail = secrets.get("SENDER_EMAIL").getAsString();
             message.setFrom(new InternetAddress(senderEmail));
-            InternetAddress[] recipientAddresses = recipients.stream().map(email -> {
-                try{
-                    return new InternetAddress(email);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }).toArray(InternetAddress[]::new);
-            message.setRecipients(Message.RecipientType.TO, recipientAddresses);
-            message.setSubject("subject");
-            message.setText("This is a test email");
+            message.setRecipient(Message.RecipientType.TO, new InternetAddress(recipient));
+            message.setSubject(subject);
+            message.setContent(emailBody, "text/html");
 
             Transport.send(message);
-            System.out.println("Email sent successfully");
+            System.out.println("Email sent successfully to: " + recipient);
         }
+    }
+
+    private String generateEmailBody(String templateName, Map<String, Object> keyToValuesMap) {
+        Context context = new Context();
+        context.setVariables(keyToValuesMap);
+        return templateEngine.process(templateName, context);
+    }
+
+    public void sendDefaultersReport(Map<String, List<PunchingDetails>> managersToDefaultersMap) throws MessagingException, EmailConfigurationException {
+        for (Map.Entry<String, List<PunchingDetails>> entry : managersToDefaultersMap.entrySet()) {
+            String reportingManagerEmail = entry.getKey();
+            List<PunchingDetails> defaulters = entry.getValue();
+            Map<String, Object> keyToValuesMap = new HashMap<>();
+            keyToValuesMap.put(AppConstant.REPORTING_MANAGER_MAIL, reportingManagerEmail.split("@")[0]);
+            keyToValuesMap.put(AppConstant.DEFAULTERS, defaulters);
+
+            sendEmail(secretName, Collections.singletonList(reportingManagerEmail), AppConstant.DEFAULTERS_REPORT, AppConstant.DEFAULTERS_REPORT_NAME, keyToValuesMap);
+        }
+    }
 }

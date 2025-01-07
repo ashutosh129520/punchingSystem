@@ -221,10 +221,9 @@ public class CsvReaderService {
         }
     }
 
-    public Map<String, List<String>> processListOfDefaulters(){
-        List<String> listOfDefaulters = new ArrayList<>();
-        Map<String, List<String>> managerToDefaultersMap = new HashMap<>();
-        Map<String, List<String>> projectIdsAndDefaultersEmail = new HashMap<>();
+    public Map<String, List<PunchingDetails>> processListOfDefaulters(){
+        Map<String, List<PunchingDetails>> listOfDefaulters = new HashMap<>();
+        Map<String, List<PunchingDetails>> projectIdsAndDefaultersEmail = new HashMap<>();
         LocalDate yesterday = LocalDate.now().minusDays(1);
         Date previousDay = Date.from(yesterday.atStartOfDay(ZoneId.systemDefault()).toInstant());
         List<PunchingDetails> previousDayPunchingDetails = punchLogRepository.findByPunchDate(previousDay);
@@ -235,32 +234,34 @@ public class CsvReaderService {
                 long durationInMillis = punchOutTime.getTime() - punchInTime.getTime();
                 long durationInHours = durationInMillis / (1000 * 60 * 60);
                 if (durationInHours < 6) {
-                    listOfDefaulters.add(punchingDetails.getUserEmail());
+                    punchingDetails.setDurationInHours(durationInHours);
+                    listOfDefaulters.computeIfAbsent(punchingDetails.getUserEmail(), k -> new ArrayList<>()).add(punchingDetails);
                 }
             }
         }
         if(!listOfDefaulters.isEmpty()){
-            //find projectId of these userEmails from WorkSchedule
             projectIdsAndDefaultersEmail = projectIdAndDefaultersEmailMap(listOfDefaulters);
-        }
-        if(!projectIdsAndDefaultersEmail.isEmpty()){
-            managerToDefaultersMap = reportingManagerToDefaultersMap(projectIdsAndDefaultersEmail);
-        }
-        return managerToDefaultersMap;
-    }
-
-    public Map<String, List<String>> projectIdAndDefaultersEmailMap(List<String> listOfDefaulters){
-        Map<String, List<String>> projectIdsAndDefaultersEmail = new HashMap<>();
-        List<WorkScheduleDetails> workSchedules = workScheduleRepository.findAllByUserEmailIn(listOfDefaulters);
-        for (WorkScheduleDetails workSchedule : workSchedules) {
-            Long projectId = workSchedule.getProjectId();
-            String userEmail = workSchedule.getUserEmail();
-            projectIdsAndDefaultersEmail.computeIfAbsent(String.valueOf(projectId), k -> new ArrayList<>()).add(userEmail);
         }
         return projectIdsAndDefaultersEmail;
     }
 
-    public Map<String, List<String>> reportingManagerToDefaultersMap(Map<String, List<String>> projectIdsAndDefaultersEmail) {
+    public Map<String, List<PunchingDetails>> projectIdAndDefaultersEmailMap(Map<String, List<PunchingDetails>> listOfDefaulters){
+        Map<String, List<PunchingDetails>> managerToDefaultersMap = new HashMap<>();
+        List<String> listOfEmails = new ArrayList<>(listOfDefaulters.keySet());
+        String reportingEmail = "";
+        List<WorkScheduleDetails> workSchedules = workScheduleRepository.findAllByUserEmailIn(listOfEmails);
+        for (WorkScheduleDetails workSchedule : workSchedules) {
+            if(Objects.nonNull(workSchedule.getProject())) {
+                reportingEmail = workSchedule.getProject().getReportingManagerEmail();
+            }
+            String userEmail = workSchedule.getUserEmail();
+            List<PunchingDetails> defaultersPunchingDetails = listOfDefaulters.getOrDefault(userEmail, new ArrayList<>());
+            managerToDefaultersMap.computeIfAbsent(reportingEmail, k -> new ArrayList<>()).addAll(defaultersPunchingDetails);
+        }
+        return managerToDefaultersMap;
+    }
+
+    /*public Map<String, List<String>> reportingManagerToDefaultersMap(Map<String, List<String>> projectIdsAndDefaultersEmail) {
         Map<String, List<String>> managerToDefaultersMap = new HashMap<>();
         for (Map.Entry<String, List<String>> entry : projectIdsAndDefaultersEmail.entrySet()) {
             String projectId = entry.getKey();
@@ -272,6 +273,6 @@ public class CsvReaderService {
         }
 
         return managerToDefaultersMap;
-    }
+    }*/
 
 }

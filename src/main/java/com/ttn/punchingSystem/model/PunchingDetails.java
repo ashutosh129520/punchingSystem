@@ -22,6 +22,8 @@ public class PunchingDetails {
     @Temporal(TemporalType.TIME)
     private Date punchOutTime;
 
+    private long durationInHours;
+
     public Long getId() {
         return id;
     }
@@ -60,6 +62,14 @@ public class PunchingDetails {
 
     public void setPunchOutTime(Date punchOutTime) {
         this.punchOutTime = punchOutTime;
+    }
+
+    public long getDurationInHours() {
+        return durationInHours;
+    }
+
+    public void setDurationInHours(long durationInHours) {
+        this.durationInHours = durationInHours;
     }
 }
 

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+<p>Dear <span th:text="${reportingManagerEmail}"></span>,</p>
+<p>Here is the list of defaulters as on privious day:</p>
+<table>
+    <thead>
+    <tr>
+        <th>User Email</th>
+        <th>Punch In Time</th>
+        <th>Punch Out Time</th>
+        <th>Duration (Hours)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="defaulter : ${defaulters}">
+        <td th:text="${defaulter.userEmail}"></td>
+        <td th:text="${#dates.format(defaulter.punchInTime, 'HH:mm:ss')}"></td>
+        <td th:text="${#dates.format(defaulter.punchOutTime, 'HH:mm:ss')}"></td>
+        <td th:text="${defaulter.durationInHours}"></td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

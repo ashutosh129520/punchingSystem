@@ -203,11 +203,16 @@ public class CsvReaderService {
         for(PunchingDetails punchingDetails : previousDayPunchingDetails){
             Date punchInTime = punchingDetails.getPunchInTime();
             Date punchOutTime = punchingDetails.getPunchOutTime();
-            if (punchInTime != null && punchOutTime != null) {
-                long durationInMillis = punchOutTime.getTime() - punchInTime.getTime();
-                long durationInHours = durationInMillis / (1000 * 60 * 60);
-                if (durationInHours < 6) {
-                    punchingDetails.setDurationInHours(durationInHours);
+            if (punchInTime != null) {
+                if (punchOutTime != null) {
+                    long durationInMillis = punchOutTime.getTime() - punchInTime.getTime();
+                    long durationInHours = durationInMillis / (1000 * 60 * 60);
+                    if (durationInHours < 6) {
+                        punchingDetails.setDurationInHours(durationInHours);
+                        listOfDefaulters.computeIfAbsent(punchingDetails.getUserEmail(), k -> new ArrayList<>()).add(punchingDetails);
+                    }
+                } else {
+                    punchingDetails.setDurationInHours(0);
                     listOfDefaulters.computeIfAbsent(punchingDetails.getUserEmail(), k -> new ArrayList<>()).add(punchingDetails);
                 }
             }

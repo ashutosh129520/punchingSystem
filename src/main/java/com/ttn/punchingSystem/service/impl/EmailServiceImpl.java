@@ -37,23 +37,23 @@ public class EmailServiceImpl implements EmailService {
     private TemplateEngine templateEngine;
     @Value("${spring.aws.secretsmanager.secretName}")
     private String secretName;
-    private volatile JsonObject cachedSecrets;
+    private volatile JsonObject secrets;
     @PostConstruct
     public void init() {
-        cachedSecrets = secretsManagerService.getSecrets(secretName);
+        secrets = secretsManagerService.getSecrets(secretName);
     }
 
-    private Session createEmailSession(JsonObject cachedSecrets) throws EmailConfigurationException {
+    private Session createEmailSession(JsonObject secrets) throws EmailConfigurationException {
 
         for(Map.Entry<String, String> entry : AppConstant.EMAIL_KEYS.entrySet()){
             String key = entry.getKey();
             String errorMessage = entry.getValue();
-            if(!cachedSecrets.has(key) || cachedSecrets.get(key).getAsString().isEmpty()){
+            if(!secrets.has(key) || secrets.get(key).getAsString().isEmpty()){
                 throw new EmailConfigurationException(errorMessage);
             }
         }
-            String senderEmail = cachedSecrets.get("SENDER_EMAIL").getAsString();
-            String senderPassword = cachedSecrets.get("SENDER_PASSWORD").getAsString();
+            String senderEmail = secrets.get("SENDER_EMAIL").getAsString();
+            String senderPassword = secrets.get("SENDER_PASSWORD").getAsString();
             Properties properties = new Properties();
             properties.put("mail.smtp.host", smtpHost);
             properties.put("mail.smtp.port", smtpPort);
@@ -67,13 +67,12 @@ public class EmailServiceImpl implements EmailService {
             });
     }
 
-    public void sendEmail(String secretName,
-                          List<String> recipients,
+    public void sendEmail(List<String> recipients,
                           String subject,
                           String templateName,
                           Map<String, Object> keyToValuesMap) throws MessagingException, EmailConfigurationException {
-        Session session = createEmailSession(cachedSecrets);
-        String senderEmail = cachedSecrets.get("SENDER_EMAIL").getAsString();
+        Session session = createEmailSession(secrets);
+        String senderEmail = secrets.get("SENDER_EMAIL").getAsString();
 
         String emailBody = generateEmailBody(templateName, keyToValuesMap);
 
@@ -103,7 +102,7 @@ public class EmailServiceImpl implements EmailService {
             keyToValuesMap.put(AppConstant.REPORTING_MANAGER_MAIL, reportingManagerEmail.split("@")[0]);
             keyToValuesMap.put(AppConstant.DEFAULTERS, defaulters);
 
-            sendEmail(secretName, Collections.singletonList(reportingManagerEmail), AppConstant.DEFAULTERS_REPORT, AppConstant.DEFAULTERS_REPORT_NAME, keyToValuesMap);
+            sendEmail(Collections.singletonList(reportingManagerEmail), AppConstant.DEFAULTERS_REPORT, AppConstant.DEFAULTERS_REPORT_NAME, keyToValuesMap);
         }
     }
 }

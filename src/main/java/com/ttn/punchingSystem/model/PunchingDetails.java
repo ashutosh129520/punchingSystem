@@ -1,18 +1,21 @@
 package com.ttn.punchingSystem.model;
 
 import javax.persistence.*;
+import javax.validation.constraints.NotNull;
 import java.util.Date;
 
 @Entity
-@Table(name = "employee_punch_log")
+@Table(name = "employee_punch_log", uniqueConstraints = @UniqueConstraint(columnNames = {"userEmail", "punchDate"}))
 public class PunchingDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull
     private String userEmail;
 
+    @NotNull
     @Temporal(TemporalType.DATE)
     private Date punchDate;
 

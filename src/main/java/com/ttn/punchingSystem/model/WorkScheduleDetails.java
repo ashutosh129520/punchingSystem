@@ -1,5 +1,7 @@
 package com.ttn.punchingSystem.model;
 
+import com.ttn.punchingSystem.model.enums.OfficeDays;
+import com.ttn.punchingSystem.model.enums.WorkShift;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,10 +25,10 @@ public class WorkScheduleDetails implements Serializable {
     private String userEmail;
 
     @Column(name = "work_shift", nullable = false)
-    private String workShift;
+    private WorkShift workShift;
 
     @Column(name = "office_days", nullable = false)
-    private String officeDays;
+    private OfficeDays officeDays;
 
     @ManyToOne
     @JoinColumn(name = "project_id", referencedColumnName = "project_id", nullable = false)

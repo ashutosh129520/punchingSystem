@@ -1,6 +1,5 @@
 package com.ttn.punchingSystem.controller;
 
-import com.ttn.punchingSystem.model.EmailDTO;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.service.CsvReaderService;
@@ -13,8 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.mail.MessagingException;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 

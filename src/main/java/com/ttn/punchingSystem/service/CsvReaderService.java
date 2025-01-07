@@ -1,6 +1,5 @@
 package com.ttn.punchingSystem.service;
 
-import com.ttn.punchingSystem.model.Project;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
@@ -12,7 +11,6 @@ import com.ttn.punchingSystem.utils.CsvValidationException;
 import com.ttn.punchingSystem.utils.DateUtil;
 import com.ttn.punchingSystem.utils.InvalidPunchTimeException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -35,8 +33,6 @@ public class CsvReaderService {
     private PunchLogRepository punchLogRepository;
     @Autowired
     private WorkScheduleRepository workScheduleRepository;
-    @Autowired
-    private ProjectRepository projectRepository;
 
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException, InvalidPunchTimeException {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
@@ -237,19 +233,4 @@ public class CsvReaderService {
         }
         return managerToDefaultersMap;
     }
-
-    /*public Map<String, List<String>> reportingManagerToDefaultersMap(Map<String, List<String>> projectIdsAndDefaultersEmail) {
-        Map<String, List<String>> managerToDefaultersMap = new HashMap<>();
-        for (Map.Entry<String, List<String>> entry : projectIdsAndDefaultersEmail.entrySet()) {
-            String projectId = entry.getKey();
-            List<String> defaulters = entry.getValue();
-            Project project = projectRepository.findByProjectId(Long.parseLong(projectId));
-            if (Objects.nonNull(project)) {
-                managerToDefaultersMap.computeIfAbsent(project.getReportingManagerEmail(), k -> new ArrayList<>()).addAll(defaulters);
-            }
-        }
-
-        return managerToDefaultersMap;
-    }*/
-
 }

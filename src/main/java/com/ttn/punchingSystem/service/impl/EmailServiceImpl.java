@@ -19,6 +19,18 @@ import java.util.*;
 @Service
 public class EmailServiceImpl implements EmailService {
 
+    @Value("${mail.smtp.host}")
+    private String smtpHost;
+
+    @Value("${mail.smtp.port}")
+    private int smtpPort;
+
+    @Value("${mail.smtp.auth}")
+    private String smtpAuth;
+
+    @Value("${mail.smtp.starttls.enable}")
+    private String smtpStarttlsEnable;
+
     @Autowired
     private SecretsManagerService secretsManagerService;
     @Autowired
@@ -40,17 +52,13 @@ public class EmailServiceImpl implements EmailService {
                 throw new EmailConfigurationException(errorMessage);
             }
         }
-            String smtpHost = cachedSecrets.get("SMTP_HOST").getAsString();
-            String smtpPort = cachedSecrets.get("SMTP_PORT").getAsString();
-            String smtpAuth = cachedSecrets.get("SMTP_AUTH").getAsString();
-            String smtpStarttls = cachedSecrets.get("SMTP_STARTTLS").getAsString();
             String senderEmail = cachedSecrets.get("SENDER_EMAIL").getAsString();
             String senderPassword = cachedSecrets.get("SENDER_PASSWORD").getAsString();
             Properties properties = new Properties();
             properties.put("mail.smtp.host", smtpHost);
             properties.put("mail.smtp.port", smtpPort);
             properties.put("mail.smtp.auth", smtpAuth);
-            properties.put("mail.smtp.starttls.enable", smtpStarttls);
+            properties.put("mail.smtp.starttls.enable", smtpStarttlsEnable);
             return Session.getInstance(properties, new Authenticator() {
                 @Override
                 protected PasswordAuthentication getPasswordAuthentication() {
@@ -64,7 +72,6 @@ public class EmailServiceImpl implements EmailService {
                           String subject,
                           String templateName,
                           Map<String, Object> keyToValuesMap) throws MessagingException, EmailConfigurationException {
-        //JsonObject secrets = secretsManagerService.getSecrets(secretName);
         Session session = createEmailSession(cachedSecrets);
         String senderEmail = cachedSecrets.get("SENDER_EMAIL").getAsString();
 

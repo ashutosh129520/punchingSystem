@@ -14,10 +14,6 @@ public class AppConstant {
     );
     public static final Map<String, String> EMAIL_KEYS = new HashMap<>();
     static {
-        EMAIL_KEYS.put("SMTP_HOST", "Missing or invalid SMTP_HOST in secrets.");
-        EMAIL_KEYS.put("SMTP_PORT", "Missing or invalid SMTP_PORT in secrets.");
-        EMAIL_KEYS.put("SMTP_AUTH", "Missing or invalid SMTP_AUTH in secrets.");
-        EMAIL_KEYS.put("SMTP_STARTTLS", "Missing or invalid SMTP_STARTTLS in secrets.");
         EMAIL_KEYS.put("SENDER_EMAIL", "Missing or invalid SENDER_EMAIL in secrets.");
         EMAIL_KEYS.put("SENDER_PASSWORD", "Missing or invalid SENDER_PASSWORD in secrets.");
     }

@@ -17,10 +17,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import javax.mail.*;
-import javax.mail.internet.AddressException;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -31,28 +27,9 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class CsvReaderService {
-
-    @Value("${mail.smtp.host}")
-    private String smtpHost;
-
-    @Value("${mail.smtp.port}")
-    private int smtpPort;
-
-    @Value("${mail.smtp.auth}")
-    private String smtpAuth;
-
-    @Value("${mail.smtp.starttls.enable}")
-    private String smtpStarttlsEnable;
-
-    @Value("${mail.username}")
-    private String senderEmail;
-
-    @Value("${mail.password}")
-    private String senderPassword;
 
     @Autowired
     private PunchLogRepository punchLogRepository;

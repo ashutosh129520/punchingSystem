@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 public class AppConstant {
     public static final String DATE_FORMAT = "dd MMM yyyy h:mm a";
+    public static final String DATE_FORMAT_FOR_FILE = "ddMMMyyyy";
     public static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Za-z0-9+_-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
     );
@@ -22,4 +23,6 @@ public class AppConstant {
     public static final String DEFAULTERS_REPORT_NAME = "defaulters-report";
     public static final String REPORTING_MANAGER_MAIL = "reportingManagerEmail";
     public static final String DEFAULTERS = "defaulters";
+    public static final String AWS_BUCKET = "punchingsystembucket";
+    public static final String POSTFIX_FILE_NAME = "_punchdetails.csv";
 }

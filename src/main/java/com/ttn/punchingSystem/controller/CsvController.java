@@ -8,6 +8,7 @@ import com.ttn.punchingSystem.utils.EmailConfigurationException;
 import com.ttn.punchingSystem.utils.InvalidPunchTimeException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 import javax.mail.MessagingException;
@@ -24,9 +25,9 @@ public class CsvController {
     @Autowired
     private EmailService emailService;
 
-    @GetMapping("/read-csv")
-    public ResponseEntity<List<PunchingDetailsDTO>> readCsv(@RequestParam("filePath") String filePath) throws ParseException, InvalidPunchTimeException {
-        return csvReaderService.readCsvFile(filePath);
+    @Scheduled(cron = "0 0 18 * * ?") // This cron expression runs the task at 6:00 PM every day
+    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFromS3() throws ParseException, InvalidPunchTimeException {
+        return csvReaderService.readCsvFileFromS3();
     }
 
     //Will be scheduler later

@@ -26,7 +26,7 @@ public class CsvController {
     private EmailService emailService;
 
     @Scheduled(cron = "0 0 18 * * ?") // This cron expression runs the task at 6:00 PM every day
-    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFromS3() throws ParseException, InvalidPunchTimeException {
+    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFromS3() {
         return csvReaderService.readCsvFileFromS3();
     }
 

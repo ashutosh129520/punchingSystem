@@ -12,6 +12,7 @@ import java.io.Serializable;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Table(name = "project", uniqueConstraints = @UniqueConstraint(columnNames = {"projectId", "name"}))
 public class Project implements Serializable {
 
     @Id

@@ -1,5 +1,6 @@
 package com.ttn.punchingSystem.service;
 
+import com.ttn.punchingSystem.config.S3CsvReaderService;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
@@ -11,19 +12,26 @@ import com.ttn.punchingSystem.utils.CsvValidationException;
 import com.ttn.punchingSystem.utils.DateUtil;
 import com.ttn.punchingSystem.utils.InvalidPunchTimeException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -33,22 +41,45 @@ public class CsvReaderService {
     private PunchLogRepository punchLogRepository;
     @Autowired
     private WorkScheduleRepository workScheduleRepository;
+    @Autowired
+    private S3CsvReaderService s3CsvReaderService;
+    @Value("${spring.aws.bucketName}")
+    private String bucketName;
 
-    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFile(String filePath) throws ParseException, InvalidPunchTimeException {
+    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFileFromS3(){
+        String fileName = generateLastDayFileNameToReadFromS3();
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(AppConstant.AWS_BUCKET)
+                .key(fileName)
+                .build();
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
-        String fileName = validateFileName(filePath);
-        punchDataList = readCsvFileIntoDTO(punchDataList, filePath, errorList, fileName);
-        if (!errorList.isEmpty()) {
-            throw new CsvValidationException(errorList);
+        try (ResponseInputStream<?> s3ObjectStream = s3CsvReaderService.getS3Client().getObject(getObjectRequest);
+             InputStreamReader inputStreamReader = new InputStreamReader(s3ObjectStream, StandardCharsets.UTF_8);
+             BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
+             fileName = validateFileName(fileName);
+            punchDataList = readCsvFileIntoDTO(punchDataList, bufferedReader, errorList, fileName);
+            if (!errorList.isEmpty()) {
+                throw new CsvValidationException(errorList);
+            }
+            Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
+            saveProcessedPunchLogs(userPunchTimes);
+        } catch (Exception e) {
+            throw new RuntimeException("Error reading CSV from S3: " + e.getMessage(), e);
         }
-        Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
-        saveProcessedPunchLogs(userPunchTimes);
         return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
     }
 
-    public List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, String filePath, List<String> errorList, String fileName){
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+    public String generateLastDayFileNameToReadFromS3(){
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(AppConstant.DATE_FORMAT_FOR_FILE); // Adjust to match your file naming format
+        String yesterdayFormatted = yesterday.format(formatter);
+        String fileKey = yesterdayFormatted + AppConstant.POSTFIX_FILE_NAME;
+        return fileKey;
+    }
+
+    public List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, BufferedReader br, List<String> errorList, String fileName){
+        try{
             String line;
             br.readLine();
             while ((line = br.readLine()) != null) {
@@ -94,8 +125,7 @@ public class CsvReaderService {
         return AppConstant.EMAIL_PATTERN.matcher(email).matches();
     }
 
-    public String validateFileName(String filePath) {
-        String fileName = extractFileName(filePath);
+    public String validateFileName(String fileName) {
         if (!AppConstant.FILE_NAME_PATTERN.matcher(fileName).matches()) {
             throw new IllegalArgumentException("Invalid file name format. Expected format: 01Jan2024_punchdetails.csv");
         }

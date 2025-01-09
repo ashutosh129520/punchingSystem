@@ -2,6 +2,7 @@ version: '3.8'
 services:
   mysql:
     image: mysql:8
+    container_name: punching_app2
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: localDb
@@ -14,7 +15,7 @@ services:
     build: .
     image: punchingsystem_app:latest
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/localDb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://punching_app2:3307/localDb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
     depends_on:

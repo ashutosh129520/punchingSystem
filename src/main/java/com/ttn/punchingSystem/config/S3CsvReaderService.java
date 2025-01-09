@@ -1,8 +1,11 @@
 package com.ttn.punchingSystem.config;
 
+import com.ttn.punchingSystem.utils.AppConstant;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 @Service
 public class S3CsvReaderService {
@@ -24,6 +27,14 @@ public class S3CsvReaderService {
             throw new IllegalStateException("S3Client is not initialized");
         }
         return this.s3Client;
+    }
+
+    public ResponseInputStream<?> getS3Object(String fileName) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(AppConstant.AWS_BUCKET)
+                .key(fileName)
+                .build();
+        return s3Client.getObject(getObjectRequest);
     }
 
 }

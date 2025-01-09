@@ -4,7 +4,6 @@ import com.ttn.punchingSystem.config.S3CsvReaderService;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
-import com.ttn.punchingSystem.repository.ProjectRepository;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
 import com.ttn.punchingSystem.repository.WorkScheduleRepository;
 import com.ttn.punchingSystem.utils.AppConstant;
@@ -16,17 +15,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -43,21 +34,18 @@ public class CsvReaderService {
     private WorkScheduleRepository workScheduleRepository;
     @Autowired
     private S3CsvReaderService s3CsvReaderService;
+    @Autowired
+    private S3Utility s3Utility;
     @Value("${spring.aws.bucketName}")
     private String bucketName;
 
-    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFileFromS3(){
+    public ResponseEntity<List<PunchingDetailsDTO>> readCsvFileFromS3() {
         String fileName = generateLastDayFileNameToReadFromS3();
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(AppConstant.AWS_BUCKET)
-                .key(fileName)
-                .build();
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
-        try (ResponseInputStream<?> s3ObjectStream = s3CsvReaderService.getS3Client().getObject(getObjectRequest);
-             InputStreamReader inputStreamReader = new InputStreamReader(s3ObjectStream, StandardCharsets.UTF_8);
-             BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
-             fileName = validateFileName(fileName);
+        try {
+            BufferedReader bufferedReader = S3Utility.processS3Object(fileName, s3CsvReaderService);
+            fileName = validateFileName(fileName);
             punchDataList = readCsvFileIntoDTO(punchDataList, bufferedReader, errorList, fileName);
             if (!errorList.isEmpty()) {
                 throw new CsvValidationException(errorList);
@@ -104,13 +92,11 @@ public class CsvReaderService {
         return punchDataList;
     }
 
-    public Boolean validateHeaderNames(List<String> errorList, String line){
+    public void validateHeaderNames(List<String> errorList, String line){
         String[] header = line.split(",");
         if (header.length < 2 || !header[0].equalsIgnoreCase("userEmail") || !header[1].equalsIgnoreCase("punchTime")) {
             errorList.add("Invalid header format. Expected header: userEmail,punchTime");
-            return Boolean.TRUE;
         }
-        return Boolean.FALSE;
     }
 
     private boolean isValidPunchData(PunchingDetailsDTO punchingDetailsDTO, String fileName, List<String> errorList) throws ParseException {
@@ -140,11 +126,6 @@ public class CsvReaderService {
             throw new IllegalArgumentException("Invalid file name format. Expected format: 01Jan2024_punchdetails.csv");
         }
         return fileName;
-    }
-
-    private String extractFileName(String filePath) {
-        Path path = Paths.get(filePath);
-        return path.getFileName().toString();
     }
 
     public Map<String, List<Date>> groupPunchTimesByUser(List<PunchingDetailsDTO> punchDataList) throws ParseException {

@@ -14,7 +14,7 @@ import java.io.Serializable;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "work_schedule_details", uniqueConstraints = @UniqueConstraint(columnNames = {"userEmail"}))
+@Table(name = "work_schedule_details", uniqueConstraints = @UniqueConstraint(columnNames = {"user_email"}))
 public class WorkScheduleDetails implements Serializable {
 
     @Id

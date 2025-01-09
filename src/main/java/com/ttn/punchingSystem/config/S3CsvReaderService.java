@@ -15,11 +15,15 @@ public class S3CsvReaderService {
                 .build();
     }
 
+    public S3CsvReaderService(S3Client s3Client) {
+        this.s3Client = s3Client;
+    }
+
     public S3Client getS3Client(){
         if (this.s3Client == null) {
             throw new IllegalStateException("S3Client is not initialized");
         }
-        return s3Client;
+        return this.s3Client;
     }
 
 }

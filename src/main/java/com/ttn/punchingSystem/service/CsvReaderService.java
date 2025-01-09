@@ -81,7 +81,8 @@ public class CsvReaderService {
     public List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, BufferedReader br, List<String> errorList, String fileName){
         try{
             String line;
-            br.readLine();
+            line = br.readLine();
+            validateHeaderNames(errorList, line);
             while ((line = br.readLine()) != null) {
                 String[] data = line.split(",");
                 if (data.length < 2) {
@@ -101,6 +102,15 @@ public class CsvReaderService {
             throw new RuntimeException("Error reading the CSV file: " + e.getMessage());
         }
         return punchDataList;
+    }
+
+    public Boolean validateHeaderNames(List<String> errorList, String line){
+        String[] header = line.split(",");
+        if (header.length < 2 || !header[0].equalsIgnoreCase("userEmail") || !header[1].equalsIgnoreCase("punchTime")) {
+            errorList.add("Invalid header format. Expected header: userEmail,punchTime");
+            return Boolean.TRUE;
+        }
+        return Boolean.FALSE;
     }
 
     private boolean isValidPunchData(PunchingDetailsDTO punchingDetailsDTO, String fileName, List<String> errorList) throws ParseException {

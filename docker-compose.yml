@@ -1,0 +1,29 @@
+version: '3.8'
+services:
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: localDb
+    ports:
+      - "3307:3306"  # Only necessary if you need external access on port 3306
+    networks:
+      - mynetwork
+
+  app:
+    build: .
+    image: punchingsystem_app:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/localDb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+    depends_on:
+      - mysql
+    ports:
+      - "8080:8080"
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    driver: bridge

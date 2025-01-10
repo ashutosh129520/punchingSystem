@@ -25,4 +25,5 @@ public class AppConstant {
     public static final String DEFAULTERS = "defaulters";
     public static final String AWS_BUCKET = "punchingsystembucket";
     public static final String POSTFIX_FILE_NAME = "_punchdetails.csv";
+    public static final String LOCK_KEY = "readCsvFromS3Lock";
 }

@@ -1,29 +1,49 @@
 version: '3.8'
+
 services:
   mysql:
     image: mysql:8
     container_name: punching_app2
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: localDb
+      MYSQL_DATABASE: localDb1
     ports:
-      - "3307:3306"  # Only necessary if you need external access on port 3306
+      - "3306:3306"  # External access to MySQL on port 3307
     networks:
       - mynetwork
+    restart: always  # Ensures MySQL restarts if it crashes
 
   app:
     build: .
     image: punchingsystem_app:latest
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://punching_app2:3307/localDb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://punching_app2:3306/localDb1?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_REDIS_HOST: redis-container  # Use service name for Redis
+      SPRING_REDIS_PORT: 6379
+      AWS_REGION: ap-south-1
+    volumes:
+      - /home/ashutosh/.aws:/root/.aws
     depends_on:
       - mysql
+      - redis-container  # Ensures Redis starts before app
     ports:
-      - "8080:8080"
+      - "8080:8081"
+      - "5005:5005"
     networks:
       - mynetwork
+    restart: always  # Ensures app restarts if it crashes
+
+  redis-container:
+    image: redis:latest
+    container_name: redis-container
+    ports:
+      - "6380:6379"  # External port mapping for Redis
+    networks:
+      - mynetwork
+    restart: always  # Ensures Redis restarts if it crashes
 
 networks:
   mynetwork:

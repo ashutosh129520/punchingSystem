@@ -16,6 +16,12 @@ RUN gradle clean build -x test
 FROM openjdk:8-jdk-slim
 COPY --from=base /opt/mysql-connector-java-8.0.33.jar /opt/
 COPY --from=builder /app/build/libs/*.jar /app/app.jar
+# Step 5: Expose debug port and run Spring Boot in debug mode
+EXPOSE 8080 5005
+# Set debug port and options (hardcoded option)
+ENV JAVA_OPTS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
 
 # Step 5: Specify entrypoint with MySQL connector in classpath
-ENTRYPOINT ["java", "-cp", "/opt/mysql-connector-java-8.0.33.jar:/app/app.jar", "org.springframework.boot.loader.JarLauncher"]
+#ENTRYPOINT ["java", "-cp", "/opt/mysql-connector-java-8.0.33.jar:/app/app.jar", "org.springframework.boot.loader.JarLauncher"]
+# Run the app in debug mode on port 5005
+ENTRYPOINT ["java", "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005", "-cp", "/opt/mysql-connector-java-8.0.33.jar:/app/app.jar", "org.springframework.boot.loader.JarLauncher"]

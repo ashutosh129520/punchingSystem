@@ -1,9 +1,11 @@
 package com.ttn.punchingSystem.config;
 
 import com.ttn.punchingSystem.utils.AppConstant;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
@@ -11,6 +13,10 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 public class S3CsvReaderService {
 
     private final S3Client s3Client;
+
+    public S3CsvReaderService(@Value("${aws.region}") String region) {
+        this.s3Client = S3Client.builder().region(Region.of(region)).build();
+    }
 
     public S3CsvReaderService() {
         this.s3Client = S3Client.builder()

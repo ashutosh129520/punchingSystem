@@ -263,7 +263,10 @@ public class CsvReaderService {
             }
             String userEmail = workSchedule.getUserEmail();
             List<PunchingDetails> defaultersPunchingDetails = listOfDefaulters.getOrDefault(userEmail, new ArrayList<>());
-            managerToDefaultersMap.computeIfAbsent(reportingEmail, k -> new ArrayList<>()).addAll(defaultersPunchingDetails);
+            if(!managerToDefaultersMap.containsKey(reportingEmail)){
+                managerToDefaultersMap.put(reportingEmail, new ArrayList<>());
+            }
+            managerToDefaultersMap.get(reportingEmail).addAll(defaultersPunchingDetails);
         }
         return managerToDefaultersMap;
     }

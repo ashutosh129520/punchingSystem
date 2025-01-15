@@ -12,9 +12,10 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.time.Duration;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,12 +47,13 @@ public class DataManagementServiceImpl implements DataManagementService {
 
     @Override
     public void updateCache(List<WorkScheduleDetails> workScheduleDetailsList) {
-        List<String> userEmails = workScheduleDetailsList.stream()
-                .map(WorkScheduleDetails::getUserEmail)
-                .distinct()
-                .collect(Collectors.toList());
-        String cacheKey = AppConstant.CACHE_KEY_PREFIX + String.join(",", userEmails);
-        redisTemplate.opsForValue().set(cacheKey, workScheduleDetailsList, Duration.ofHours(24));
+        Map<String, Object> cachedData = new HashMap<>();
+        Map<String, List<WorkScheduleDetails>> userEmailToDetailsMap = new HashMap<>();
+        userEmailToDetailsMap = workScheduleDetailsList.stream().collect(Collectors.groupingBy(WorkScheduleDetails::getUserEmail));
+        for(Map.Entry<String, List<WorkScheduleDetails>> entry : userEmailToDetailsMap.entrySet()){
+            cachedData.put(entry.getKey(), entry.getValue());
+        }
+        redisTemplate.opsForValue().multiSet(cachedData);
+        cachedData.keySet().forEach(key -> redisTemplate.expire(key, 10, TimeUnit.MINUTES));
     }
-
 }

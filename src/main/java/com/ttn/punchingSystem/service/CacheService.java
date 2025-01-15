@@ -54,8 +54,12 @@ public class CacheService {
         }
     }
 
-    public Map<String, List<PunchingDetails>> getDefaultersFromCache() {
-        return (Map<String, List<PunchingDetails>>) redisTemplate.opsForValue().get(AppConstant.DEFAULTERS_CACHE);
+    public List<PunchingDetails> getDefaultersFromCache(String key) {
+        if (key.startsWith(AppConstant.DEFAULTERS_CACHE)) {
+            return (List<PunchingDetails>) redisTemplate.opsForValue().get(key);
+        }else {
+            throw new IllegalArgumentException("Key does not match any known cache prefix: " + key);
+        }
     }
 
     public List<WorkScheduleDetails> getCachedWorkSchedulesDefaulterList(List<String> userEmails) {

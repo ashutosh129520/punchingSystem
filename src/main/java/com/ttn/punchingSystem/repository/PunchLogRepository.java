@@ -9,5 +9,6 @@ public interface PunchLogRepository extends JpaRepository<PunchingDetails, Long>
 
     List<PunchingDetails> findByUserEmailAndPunchDate(String userEmail, Date punchDate);
     List<PunchingDetails> findByPunchDate(Date previousDay);
+    List<PunchingDetails> findByUserEmail(String previousDay);
 }
 

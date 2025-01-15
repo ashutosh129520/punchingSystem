@@ -4,6 +4,7 @@ import com.ttn.punchingSystem.config.S3CsvReaderService;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
+import com.ttn.punchingSystem.model.WorkScheduleResult;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
 import com.ttn.punchingSystem.repository.WorkScheduleRepository;
 import com.ttn.punchingSystem.utils.*;
@@ -251,13 +252,13 @@ public class CsvReaderService {
         Map<String, List<PunchingDetails>> managerToDefaultersMap = new HashMap<>();
         List<String> listOfEmails = new ArrayList<>(listOfDefaulters.keySet());
         String reportingEmail = "";
-        List<WorkScheduleDetails> workSchedules = cacheService.getCachedWorkSchedulesDefaulterList(listOfEmails);
-        if(Objects.isNull(workSchedules)){
-            cacheMetrics.incrementCacheMiss(AppConstant.DEFAULTERS_CACHE_METRIC);
-        }else{
+        WorkScheduleResult workSchedules = cacheService.getCachedWorkSchedulesDefaulterList(listOfEmails);
+        if (workSchedules.isFromCache()) {
             cacheMetrics.incrementCacheHit(AppConstant.DEFAULTERS_CACHE_METRIC);
+        } else {
+            cacheMetrics.incrementCacheMiss(AppConstant.DEFAULTERS_CACHE_METRIC);
         }
-        for (WorkScheduleDetails workSchedule : workSchedules) {
+        for (WorkScheduleDetails workSchedule : workSchedules.getWorkSchedules()) {
             if(Objects.nonNull(workSchedule.getProject())) {
                 reportingEmail = workSchedule.getProject().getReportingManagerEmail();
             }

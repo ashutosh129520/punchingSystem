@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface DataManagementService {
     void saveWorkScheduleDetails(List<WorkScheduleDetails> workScheduleDetails);
-    void updateCache(List<WorkScheduleDetails> workScheduleDetailsList);
+    void updateCache();
 }

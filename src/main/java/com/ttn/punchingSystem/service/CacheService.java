@@ -2,13 +2,16 @@ package com.ttn.punchingSystem.service;
 
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
+import com.ttn.punchingSystem.model.WorkScheduleResult;
 import com.ttn.punchingSystem.repository.WorkScheduleRepository;
 import com.ttn.punchingSystem.utils.AppConstant;
+import com.ttn.punchingSystem.utils.DateUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.*;
 
 @Service
@@ -43,8 +46,7 @@ public class CacheService {
         for (String key : matchingKeys) {
             if (key.startsWith(AppConstant.CACHE_KEY_PREFIX)) {
                 redisTemplate.delete(key);
-                List<WorkScheduleDetails> workScheduleDetailsList = workScheduleDetailsRepository.findAll();
-                dataManagementService.updateCache(workScheduleDetailsList);
+                dataManagementService.updateCache();
             } else if (key.startsWith(AppConstant.DEFAULTERS_CACHE)) {
                 redisTemplate.delete(key);
                 csvReaderService.processListOfDefaulters();
@@ -54,28 +56,33 @@ public class CacheService {
         }
     }
 
-    public List<PunchingDetails> getDefaultersFromCache(String key) {
-        if (key.startsWith(AppConstant.DEFAULTERS_CACHE)) {
-            return (List<PunchingDetails>) redisTemplate.opsForValue().get(key);
-        }else {
-            throw new IllegalArgumentException("Key does not match any known cache prefix: " + key);
+    public List<WorkScheduleDetails> getDefaultersFromCache(String key) {
+        List<WorkScheduleDetails> cachedWorkSchedules = (List<WorkScheduleDetails>) redisTemplate.opsForValue().get(key + ":");
+        if(Objects.nonNull(cachedWorkSchedules)) {
+            if (!cachedWorkSchedules.isEmpty()) {
+                return cachedWorkSchedules;
+            } else {
+                throw new IllegalArgumentException("Key does not match any known cache prefix: " + key);
+            }
         }
+        return null;
     }
 
-    public List<WorkScheduleDetails> getCachedWorkSchedulesDefaulterList(List<String> userEmails) {
-        List<WorkScheduleDetails> cachedWorkSchedules = null;
+    public WorkScheduleResult getCachedWorkSchedulesDefaulterList(List<String> userEmails) {
         try {
-            String cacheKey = generateCacheKey(AppConstant.DEFAULTERS_CACHE, userEmails);
-            cachedWorkSchedules = (List<WorkScheduleDetails>) redisTemplate.opsForValue().get(cacheKey);
-            if (Objects.isNull(cachedWorkSchedules) || cachedWorkSchedules.isEmpty()) {
-                List<WorkScheduleDetails> workSchedules = workScheduleDetailsRepository.findAllByUserEmailIn(userEmails);
-                redisTemplate.opsForValue().set(cacheKey, workSchedules, Duration.ofHours(24));
-                return workSchedules;
+            String todaysDate = DateUtil.getFormattedTodaysDate();
+            List<WorkScheduleDetails> cachedWorkSchedules = (List<WorkScheduleDetails>) redisTemplate.opsForValue().get(todaysDate + ":");
+            if (cachedWorkSchedules != null && !cachedWorkSchedules.isEmpty()) {
+                return new WorkScheduleResult(cachedWorkSchedules, true);
+            } else {
+                List<WorkScheduleDetails> workSchedulesDefaultersList = workScheduleDetailsRepository.findAllByUserEmailIn(userEmails);
+                redisTemplate.opsForValue().set(todaysDate + ":", workSchedulesDefaultersList, Duration.ofDays(7));
+                return new WorkScheduleResult(workSchedulesDefaultersList, false);
             }
-            return cachedWorkSchedules;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
+
 }
 

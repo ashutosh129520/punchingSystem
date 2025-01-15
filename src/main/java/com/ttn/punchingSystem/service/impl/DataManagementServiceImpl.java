@@ -33,22 +33,39 @@ public class DataManagementServiceImpl implements DataManagementService {
             throw new IllegalArgumentException("WorkScheduleDetails list cannot be null or empty");
         }
         for (WorkScheduleDetails workScheduleDetails : workScheduleDetailsList) {
-            if (workScheduleDetails.getUserEmail().isEmpty()
-                    || Objects.isNull(workScheduleDetails.getProject())) {
+            if (workScheduleDetails.getUserEmail().isEmpty()) {
                 throw new IllegalArgumentException("Work schedule mandatory details cannot be null or empty");
             }
-            Project project = workScheduleDetails.getProject();
-            Optional<Project> existingProject = projectRepository.findById(project.getProjectId());
-            existingProject.ifPresent(workScheduleDetails::setProject);
+            Optional<WorkScheduleDetails> existingRecord = workScheduleRepository.findByUserEmail(workScheduleDetails.getUserEmail());
+            if (existingRecord.isPresent()) {
+                WorkScheduleDetails existingDetails = existingRecord.get();
+                existingDetails.setWorkShift(workScheduleDetails.getWorkShift());
+                existingDetails.setOfficeDays(workScheduleDetails.getOfficeDays());
+                existingDetails.setProject(existingRecord.get().getProject());
+                workScheduleRepository.save(existingDetails); // Save the updated record
+            } else {
+                Project project = workScheduleDetails.getProject();
+                Optional<Project> existingProject = projectRepository.findById(project.getProjectId());
+                if(!existingProject.isPresent()){
+                    if(Objects.nonNull(project.getReportingManagerEmail())
+                            && Objects.nonNull(project.getProjectId())
+                            && Objects.nonNull(project.getName())){
+                        projectRepository.save(project);
+                    }else{
+                        throw new IllegalArgumentException("Project mandatory details cannot be null or empty");
+                    }
+                }
+                workScheduleRepository.save(workScheduleDetails);
+            }
         }
-        workScheduleRepository.saveAll(workScheduleDetailsList);
-        updateCache(workScheduleDetailsList);
+        updateCache();
     }
 
     @Override
-    public void updateCache(List<WorkScheduleDetails> workScheduleDetailsList) {
+    public void updateCache() {
         Map<String, Object> cachedData = new HashMap<>();
         Map<String, List<WorkScheduleDetails>> userEmailToDetailsMap = new HashMap<>();
+        List<WorkScheduleDetails> workScheduleDetailsList = workScheduleRepository.findAll();
         userEmailToDetailsMap = workScheduleDetailsList.stream().collect(Collectors.groupingBy(WorkScheduleDetails::getUserEmail));
         for(Map.Entry<String, List<WorkScheduleDetails>> entry : userEmailToDetailsMap.entrySet()){
             cachedData.put(entry.getKey(), entry.getValue());

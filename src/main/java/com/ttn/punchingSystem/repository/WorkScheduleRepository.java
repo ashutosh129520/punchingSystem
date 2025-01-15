@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface WorkScheduleRepository extends JpaRepository<WorkScheduleDetails, Long> {
 
     List<WorkScheduleDetails> findAllByUserEmailIn(List<String> userEmails);
+    Optional<WorkScheduleDetails> findByUserEmail(String userEmails);
 }
 

@@ -71,6 +71,17 @@ public class PunchingDetails {
         return durationInHours;
     }
 
+    @Override
+    public String toString() {
+        return "PunchingDetails{" +
+                "userEmail='" + userEmail + '\'' +
+                ", punchDate=" + punchDate +
+                ", punchInTime=" + punchInTime +
+                ", punchOutTime=" + punchOutTime +
+                ", durationInHours=" + durationInHours +
+                '}';
+    }
+
     public void setDurationInHours(long durationInHours) {
         this.durationInHours = durationInHours;
     }

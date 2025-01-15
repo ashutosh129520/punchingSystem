@@ -35,6 +35,8 @@ public class CsvReaderService {
     @Autowired
     private S3CsvReaderService s3CsvReaderService;
     @Autowired
+    private CacheService cacheService;
+    @Autowired
     private S3Utility s3Utility;
     @Value("${spring.aws.bucketName}")
     private String bucketName;
@@ -248,7 +250,7 @@ public class CsvReaderService {
         Map<String, List<PunchingDetails>> managerToDefaultersMap = new HashMap<>();
         List<String> listOfEmails = new ArrayList<>(listOfDefaulters.keySet());
         String reportingEmail = "";
-        List<WorkScheduleDetails> workSchedules = workScheduleRepository.findAllByUserEmailIn(listOfEmails);
+        List<WorkScheduleDetails> workSchedules = cacheService.getCachedWorkSchedulesDefaulterList(listOfEmails);
         for (WorkScheduleDetails workSchedule : workSchedules) {
             if(Objects.nonNull(workSchedule.getProject())) {
                 reportingEmail = workSchedule.getProject().getReportingManagerEmail();

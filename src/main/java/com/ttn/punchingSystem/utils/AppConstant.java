@@ -28,4 +28,6 @@ public class AppConstant {
     public static final String POSTFIX_FILE_NAME = "_punchdetails.csv";
     public static final String LOCK_KEY = "readCsvFromS3Lock";
     public static final String CACHE_KEY_PREFIX = "workSchedule:";
+    public static final String DEFAULTERS_CACHE_METRIC = "defaultersCache";
+    public static final String WORK_SCHEDULE_CACHE_METRIC = "workScheduleCache";
 }

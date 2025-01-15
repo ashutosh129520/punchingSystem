@@ -6,10 +6,9 @@ import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
 import com.ttn.punchingSystem.repository.WorkScheduleRepository;
-import com.ttn.punchingSystem.utils.AppConstant;
-import com.ttn.punchingSystem.utils.CsvValidationException;
-import com.ttn.punchingSystem.utils.DateUtil;
-import com.ttn.punchingSystem.utils.InvalidPunchTimeException;
+import com.ttn.punchingSystem.utils.*;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -40,6 +39,8 @@ public class CsvReaderService {
     private S3Utility s3Utility;
     @Value("${spring.aws.bucketName}")
     private String bucketName;
+    @Autowired
+    private CacheMetrics cacheMetrics;
 
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFileFromS3() {
         String fileName = generateLastDayFileNameToReadFromS3();
@@ -251,6 +252,11 @@ public class CsvReaderService {
         List<String> listOfEmails = new ArrayList<>(listOfDefaulters.keySet());
         String reportingEmail = "";
         List<WorkScheduleDetails> workSchedules = cacheService.getCachedWorkSchedulesDefaulterList(listOfEmails);
+        if(Objects.isNull(workSchedules)){
+            cacheMetrics.incrementCacheMiss(AppConstant.DEFAULTERS_CACHE_METRIC);
+        }else{
+            cacheMetrics.incrementCacheHit(AppConstant.DEFAULTERS_CACHE_METRIC);
+        }
         for (WorkScheduleDetails workSchedule : workSchedules) {
             if(Objects.nonNull(workSchedule.getProject())) {
                 reportingEmail = workSchedule.getProject().getReportingManagerEmail();

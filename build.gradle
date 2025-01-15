@@ -43,7 +43,8 @@ dependencies {
 	implementation 'org.apache.commons:commons-csv:1.10.0'
 	implementation 'io.swagger:swagger-annotations:1.6.2'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-core'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
 	implementation('org.redisson:redisson-spring-boot-starter:3.16.4') {
 		exclude group: 'io.netty', module: 'netty-all'
 		exclude group: 'io.netty', module: 'netty-resolver-dns'

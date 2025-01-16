@@ -5,28 +5,31 @@ import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.service.CsvReaderService;
 import com.ttn.punchingSystem.utils.AppConstant;
 import io.swagger.annotations.ApiOperation;
+import org.quartz.Job;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
 import org.redisson.api.RLock;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Component
-public class JobScheduler {
+public class JobScheduler implements Job {
 
     private final DistributedLockManager lockManager;
     private final CsvReaderService csvReaderService;
 
+    @Autowired
     public JobScheduler(DistributedLockManager lockManager, CsvReaderService csvReaderService) {
         this.lockManager = lockManager;
         this.csvReaderService = csvReaderService;
     }
 
-    @Scheduled(cron = "0 59 14 * * ?")
     @ApiOperation(value = "Read CSV from S3",
-            notes = "This task runs at 2:59 PM every day and reads a CSV file from the S3 bucket.")
+            notes = "This task reads a CSV file from the S3 bucket.")
     public void readCsvFromS3() {
         RLock lock = null;
         try {
@@ -42,5 +45,11 @@ public class JobScheduler {
         } finally {
             lockManager.unlock(lock);
         }
+    }
+
+    @Override
+    public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+        System.out.println("Executing CSV reading task...");
+        csvReaderService.readCsvFileFromS3();
     }
 }

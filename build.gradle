@@ -45,6 +45,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'io.micrometer:micrometer-core'
 	implementation 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'org.springframework.boot:spring-boot-starter-quartz'
 	implementation('org.redisson:redisson-spring-boot-starter:3.16.4') {
 		exclude group: 'io.netty', module: 'netty-all'
 		exclude group: 'io.netty', module: 'netty-resolver-dns'

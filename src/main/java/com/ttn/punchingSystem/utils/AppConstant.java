@@ -31,4 +31,6 @@ public class AppConstant {
     public static final String CACHE_KEY_PREFIX = "workSchedule:";
     public static final String DEFAULTERS_CACHE_METRIC = "defaultersCache";
     public static final String WORK_SCHEDULE_CACHE_METRIC = "workScheduleCache";
+    public static final String PROPERTIES_FILE_PATH = "src/main/resources/application.properties";
+    public static final String API_KEY = "ADMIN-ROLE";
 }

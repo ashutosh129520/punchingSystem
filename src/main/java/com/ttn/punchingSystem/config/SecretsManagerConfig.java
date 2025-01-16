@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class SecretsManagerService {
+public class SecretsManagerConfig {
 
     private final AWSSecretsManager secretsManager;
 
@@ -23,8 +23,8 @@ public class SecretsManagerService {
     @Value("${mail.aws.secretKey}")
     private String secretKey;
 
-    public SecretsManagerService(@Value("${mail.aws.accessKey}") String accessKey,
-                                 @Value("${mail.aws.secretKey}") String secretKey) {
+    public SecretsManagerConfig(@Value("${mail.aws.accessKey}") String accessKey,
+                                @Value("${mail.aws.secretKey}") String secretKey) {
         this.secretsManager = AWSSecretsManagerClientBuilder.standard()
                 .withCredentials(new AWSStaticCredentialsProvider(
                         new BasicAWSCredentials(accessKey, secretKey)))

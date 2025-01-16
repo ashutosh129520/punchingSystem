@@ -1,4 +1,4 @@
-package com.ttn.punchingSystem.config;
+package com.ttn.punchingSystem.service;
 
 import com.ttn.punchingSystem.utils.AppConstant;
 import org.springframework.beans.factory.annotation.Value;

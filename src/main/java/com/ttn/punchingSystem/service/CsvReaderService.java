@@ -1,6 +1,5 @@
 package com.ttn.punchingSystem.service;
 
-import com.ttn.punchingSystem.config.S3CsvReaderService;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.model.WorkScheduleDetails;
@@ -8,8 +7,6 @@ import com.ttn.punchingSystem.model.WorkScheduleResult;
 import com.ttn.punchingSystem.repository.PunchLogRepository;
 import com.ttn.punchingSystem.repository.WorkScheduleRepository;
 import com.ttn.punchingSystem.utils.*;
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -36,8 +33,6 @@ public class CsvReaderService {
     private S3CsvReaderService s3CsvReaderService;
     @Autowired
     private CacheService cacheService;
-    @Autowired
-    private S3Utility s3Utility;
     @Value("${spring.aws.bucketName}")
     private String bucketName;
     @Autowired
@@ -48,7 +43,7 @@ public class CsvReaderService {
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
         try {
-            BufferedReader bufferedReader = S3Utility.processS3Object(fileName, s3CsvReaderService);
+            BufferedReader bufferedReader = S3ProcessingService.processS3Object(fileName, s3CsvReaderService);
             fileName = validateFileName(fileName);
             punchDataList = readCsvFileIntoDTO(punchDataList, bufferedReader, errorList, fileName);
             if (!errorList.isEmpty()) {

@@ -1,6 +1,6 @@
 package com.ttn.punchingSystem.service.impl;
 import com.google.gson.JsonObject;
-import com.ttn.punchingSystem.config.SecretsManagerService;
+import com.ttn.punchingSystem.config.SecretsManagerConfig;
 import com.ttn.punchingSystem.model.PunchingDetails;
 import com.ttn.punchingSystem.service.EmailService;
 import com.ttn.punchingSystem.utils.AppConstant;
@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
-import javax.annotation.PostConstruct;
 import javax.mail.*;
 import javax.mail.internet.*;
 import java.util.*;
@@ -32,17 +31,17 @@ public class EmailServiceImpl implements EmailService {
     private String smtpStarttlsEnable;
 
     @Autowired
-    private SecretsManagerService secretsManagerService;
+    private SecretsManagerConfig secretsManagerConfig;
     @Autowired
     private TemplateEngine templateEngine;
     @Value("${spring.aws.secretsmanager.secretName}")
     private String secretName;
     private volatile JsonObject secrets;
 
-    public EmailServiceImpl(SecretsManagerService secretsManagerService, @Value("${spring.aws.secretsmanager.secretName}") String secretName) {
-        this.secretsManagerService = secretsManagerService;
+    public EmailServiceImpl(SecretsManagerConfig secretsManagerConfig, @Value("${spring.aws.secretsmanager.secretName}") String secretName) {
+        this.secretsManagerConfig = secretsManagerConfig;
         this.secretName = secretName;
-        this.secrets = secretsManagerService.getSecrets(secretName);
+        this.secrets = secretsManagerConfig.getSecrets(secretName);
     }
 
     private Session createEmailSession(JsonObject secrets) throws EmailConfigurationException {

@@ -34,6 +34,7 @@ public class DynamicJobScheduler {
 
     @PostConstruct
     public void startScheduler() throws SchedulerException {
+        System.out.println("JOB_CRON_EXPRESSION from env: " + System.getenv("JOB_CRON_EXPRESSION"));
         scheduler.start();
         scheduleJob(JobScheduler.class, "csvReadingJob", "csvReadingGroup", defaultCronExpression);
     }

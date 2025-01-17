@@ -22,7 +22,7 @@ public class DynamicJobScheduler {
     private final SpringJobFactory jobFactory;
     private final Map<String, JobKey> jobKeys = new HashMap<>();
 
-    @Value("${JOB_CRON_EXPRESSION:0 0/9 * * * ?}")
+    @Value("${JOB_CRON_EXPRESSION}")
     private String defaultCronExpression;
 
     @Autowired

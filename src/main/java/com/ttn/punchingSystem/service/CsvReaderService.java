@@ -38,12 +38,24 @@ public class CsvReaderService {
     @Autowired
     private CacheMetrics cacheMetrics;
 
+    private static boolean isSameDay(Date date1, Date date2) {
+        SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd");
+        if (Objects.nonNull(date1) && Objects.nonNull(date2)) {
+            return dayFormat.format(date1).equals(dayFormat.format(date2));
+        }
+        return true;
+    }
+
     public ResponseEntity<List<PunchingDetailsDTO>> readCsvFileFromS3() {
         String fileName = generateLastDayFileNameToReadFromS3();
         List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
         List<String> errorList = new ArrayList<>();
         try {
             BufferedReader bufferedReader = S3ProcessingService.processS3Object(fileName, s3CsvReaderService);
+            if (Objects.isNull(bufferedReader) || !bufferedReader.ready()) {
+                errorList.add("File is empty or corrupted: " + fileName);
+                throw new CsvValidationException(errorList);
+            }
             fileName = validateFileName(fileName);
             punchDataList = readCsvFileIntoDTO(punchDataList, bufferedReader, errorList, fileName);
             if (!errorList.isEmpty()) {
@@ -57,16 +69,16 @@ public class CsvReaderService {
         return ResponseEntity.status(HttpStatus.OK).body(punchDataList);
     }
 
-    public String generateLastDayFileNameToReadFromS3(){
+    public String generateLastDayFileNameToReadFromS3() {
         LocalDate yesterday = LocalDate.now().minusDays(1);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(AppConstant.DATE_FORMAT_FOR_FILE); // Adjust to match your file naming format
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(AppConstant.DATE_FORMAT_FOR_FILE);
         String yesterdayFormatted = yesterday.format(formatter);
         String fileKey = yesterdayFormatted + AppConstant.POSTFIX_FILE_NAME;
         return fileKey;
     }
 
-    public List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, BufferedReader br, List<String> errorList, String fileName){
-        try{
+    public List<PunchingDetailsDTO> readCsvFileIntoDTO(List<PunchingDetailsDTO> punchDataList, BufferedReader br, List<String> errorList, String fileName) {
+        try {
             String line;
             line = br.readLine();
             validateHeaderNames(errorList, line);
@@ -76,10 +88,7 @@ public class CsvReaderService {
                     errorList.add("Invalid row format: " + line);
                     continue;
                 }
-                PunchingDetailsDTO punchingDetailsDTO = new PunchingDetailsDTO(
-                        (data[0] == null || data[0].isEmpty()) ? null : data[0],
-                        (data[1] == null || data[1].isEmpty()) ? null : data[1]
-                );
+                PunchingDetailsDTO punchingDetailsDTO = new PunchingDetailsDTO((data[0] == null || data[0].isEmpty()) ? null : data[0], (data[1] == null || data[1].isEmpty()) ? null : data[1]);
                 if (!isValidPunchData(punchingDetailsDTO, fileName, errorList)) {
                     continue;
                 }
@@ -91,7 +100,7 @@ public class CsvReaderService {
         return punchDataList;
     }
 
-    public void validateHeaderNames(List<String> errorList, String line){
+    public void validateHeaderNames(List<String> errorList, String line) {
         String[] header = line.split(",");
         if (header.length < 2 || !header[0].equalsIgnoreCase("userEmail") || !header[1].equalsIgnoreCase("punchTime")) {
             errorList.add("Invalid header format. Expected header: userEmail,punchTime");
@@ -106,7 +115,7 @@ public class CsvReaderService {
             errorList.add("Invalid email: " + punchingDetailsDTO.getUserEmail());
             isValid = false;
         }
-        if(!fileName.equals(punchInDate)){
+        if (!fileName.equals(punchInDate)) {
             errorList.add("PunchedDate does not correspond to fileDate" + punchingDetailsDTO.getPunchTime());
         }
         if (!DateUtil.isValidDateFormat(punchingDetailsDTO.getPunchTime())) {
@@ -133,7 +142,7 @@ public class CsvReaderService {
         for (PunchingDetailsDTO punchData : punchDataList) {
             String userEmail = punchData.getUserEmail();
             Date punchTime = sdf.parse(punchData.getPunchTime());
-            if(!userPunchTimes.containsKey(userEmail)){
+            if (!userPunchTimes.containsKey(userEmail)) {
                 userPunchTimes.put(userEmail, new ArrayList<>());
             }
             userPunchTimes.get(userEmail).add(punchTime);
@@ -144,37 +153,29 @@ public class CsvReaderService {
 
     public void saveProcessedPunchLogs(Map<String, List<Date>> userPunchTimes) throws InvalidPunchTimeException {
         List<PunchingDetails> processedLogs = new ArrayList<>();
-            for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
-                String userEmail = entry.getKey();
-                List<Date> times = entry.getValue();
-                if (times.isEmpty()) continue;
-                Date punchIn = times.get(0);
-                Date punchOut = times.size() > 1 ? entry.getValue().get(times.size() - 1) : null;
-                if(validateTimes(punchIn, punchOut, userEmail)) {
-                    PunchingDetails punchingDetails = new PunchingDetails();
-                    punchingDetails.setUserEmail(userEmail);
-                    punchingDetails.setPunchDate(punchIn);
-                    punchingDetails.setPunchInTime(punchIn);
-                    punchingDetails.setPunchOutTime(punchOut);
-                    processedLogs.add(punchingDetails);
-                }
+        for (Map.Entry<String, List<Date>> entry : userPunchTimes.entrySet()) {
+            String userEmail = entry.getKey();
+            List<Date> times = entry.getValue();
+            if (times.isEmpty()) continue;
+            Date punchIn = times.get(0);
+            Date punchOut = times.size() > 1 ? entry.getValue().get(times.size() - 1) : null;
+            if (validateTimes(punchIn, punchOut, userEmail)) {
+                PunchingDetails punchingDetails = new PunchingDetails();
+                punchingDetails.setUserEmail(userEmail);
+                punchingDetails.setPunchDate(punchIn);
+                punchingDetails.setPunchInTime(punchIn);
+                punchingDetails.setPunchOutTime(punchOut);
+                processedLogs.add(punchingDetails);
             }
-        saveLogsToRepository(processedLogs);
-    }
-
-    private static boolean isSameDay(Date date1, Date date2) {
-        SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd");
-        if(Objects.nonNull(date1) && Objects.nonNull(date2)) {
-            return dayFormat.format(date1).equals(dayFormat.format(date2));
         }
-        return true;
+        saveLogsToRepository(processedLogs);
     }
 
     private boolean validateTimes(Date punchIn, Date punchOut, String userEmail) throws InvalidPunchTimeException {
         if (!isSameDay(punchIn, punchOut)) {
             throw new InvalidPunchTimeException("Invalid punch time in csv file for user: " + userEmail);
         }
-        if(Objects.isNull(punchOut) && Objects.nonNull(punchIn)){
+        if (Objects.isNull(punchOut) && Objects.nonNull(punchIn)) {
             return true;
         }
         // Check if punchOut time is valid for the same day
@@ -187,25 +188,22 @@ public class CsvReaderService {
 
     public void saveLogsToRepository(Collection<PunchingDetails> logs) {
         for (PunchingDetails log : logs) {
-            List<PunchingDetails> existingLogs = punchLogRepository.findByUserEmailAndPunchDate(
-                    log.getUserEmail(),
-                    log.getPunchDate()
-            );
+            List<PunchingDetails> existingLogs = punchLogRepository.findByUserEmailAndPunchDate(log.getUserEmail(), log.getPunchDate());
             if (existingLogs.isEmpty()) {
                 punchLogRepository.save(log);
-            }else {
+            } else {
                 PunchingDetails existingLog = existingLogs.get(0);
                 boolean isUpdated = false;
                 if (!log.getPunchInTime().equals(existingLog.getPunchInTime())) {
                     existingLog.setPunchInTime(log.getPunchInTime());
                     isUpdated = true;
                 }
-                if(Objects.isNull(log.getPunchOutTime())) {
-                        existingLog.setPunchOutTime(null);
-                        isUpdated = true;
-                }else if(!log.getPunchOutTime().equals(existingLog.getPunchOutTime())){
-                        existingLog.setPunchOutTime(log.getPunchOutTime());
-                        isUpdated = true;
+                if (Objects.isNull(log.getPunchOutTime())) {
+                    existingLog.setPunchOutTime(null);
+                    isUpdated = true;
+                } else if (!log.getPunchOutTime().equals(existingLog.getPunchOutTime())) {
+                    existingLog.setPunchOutTime(log.getPunchOutTime());
+                    isUpdated = true;
                 }
                 if (isUpdated) {
                     punchLogRepository.save(existingLog);
@@ -214,13 +212,13 @@ public class CsvReaderService {
         }
     }
 
-    public Map<String, List<PunchingDetails>> processListOfDefaulters(){
+    public Map<String, List<PunchingDetails>> processListOfDefaulters() {
         Map<String, List<PunchingDetails>> listOfDefaulters = new HashMap<>();
         Map<String, List<PunchingDetails>> projectIdsAndDefaultersEmail = new HashMap<>();
         LocalDate yesterday = LocalDate.now().minusDays(1);
         Date previousDay = Date.from(yesterday.atStartOfDay(ZoneId.systemDefault()).toInstant());
         List<PunchingDetails> previousDayPunchingDetails = punchLogRepository.findByPunchDate(previousDay);
-        for(PunchingDetails punchingDetails : previousDayPunchingDetails){
+        for (PunchingDetails punchingDetails : previousDayPunchingDetails) {
             Date punchInTime = punchingDetails.getPunchInTime();
             Date punchOutTime = punchingDetails.getPunchOutTime();
             if (punchInTime != null) {
@@ -237,13 +235,13 @@ public class CsvReaderService {
                 }
             }
         }
-        if(!listOfDefaulters.isEmpty()){
+        if (!listOfDefaulters.isEmpty()) {
             projectIdsAndDefaultersEmail = projectIdAndDefaultersEmailMap(listOfDefaulters);
         }
         return projectIdsAndDefaultersEmail;
     }
 
-    public Map<String, List<PunchingDetails>> projectIdAndDefaultersEmailMap(Map<String, List<PunchingDetails>> listOfDefaulters){
+    public Map<String, List<PunchingDetails>> projectIdAndDefaultersEmailMap(Map<String, List<PunchingDetails>> listOfDefaulters) {
         Map<String, List<PunchingDetails>> managerToDefaultersMap = new HashMap<>();
         List<String> listOfEmails = new ArrayList<>(listOfDefaulters.keySet());
         String reportingEmail = "";
@@ -254,16 +252,42 @@ public class CsvReaderService {
             cacheMetrics.incrementCacheMiss(AppConstant.DEFAULTERS_CACHE_METRIC);
         }
         for (WorkScheduleDetails workSchedule : workSchedules.getWorkSchedules()) {
-            if(Objects.nonNull(workSchedule.getProject())) {
+            if (Objects.nonNull(workSchedule.getProject())) {
                 reportingEmail = workSchedule.getProject().getReportingManagerEmail();
             }
             String userEmail = workSchedule.getUserEmail();
             List<PunchingDetails> defaultersPunchingDetails = listOfDefaulters.getOrDefault(userEmail, new ArrayList<>());
-            if(!managerToDefaultersMap.containsKey(reportingEmail)){
+            if (!managerToDefaultersMap.containsKey(reportingEmail)) {
                 managerToDefaultersMap.put(reportingEmail, new ArrayList<>());
             }
             managerToDefaultersMap.get(reportingEmail).addAll(defaultersPunchingDetails);
         }
         return managerToDefaultersMap;
+    }
+
+    public Boolean reprocessFileForDate(String date) throws InvalidPunchTimeException, ParseException, IOException {
+        List<PunchingDetailsDTO> punchDataList = new ArrayList<>();
+        List<String> errorList = new ArrayList<>();
+        String fileName = generateFileNameToReadFromS3(date);
+        BufferedReader bufferedReader = S3ProcessingService.processS3Object(fileName, s3CsvReaderService);
+        if (Objects.isNull(bufferedReader) || !bufferedReader.ready()) {
+            errorList.add("File is empty or corrupted: " + fileName);
+            throw new CsvValidationException(errorList);
+        }
+        fileName = validateFileName(fileName);
+        punchDataList = readCsvFileIntoDTO(punchDataList, bufferedReader, errorList, fileName);
+        if (!errorList.isEmpty()) {
+            throw new CsvValidationException(errorList);
+        }
+        Map<String, List<Date>> userPunchTimes = groupPunchTimesByUser(punchDataList);
+        saveProcessedPunchLogs(userPunchTimes);
+        return true;
+    }
+
+    public String generateFileNameToReadFromS3(String date) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(AppConstant.DATE_FORMAT_FOR_FILE);
+        LocalDate inputDate = LocalDate.parse(date, formatter);
+        String formattedDate = inputDate.format(formatter);
+        return formattedDate + AppConstant.POSTFIX_FILE_NAME;
     }
 }

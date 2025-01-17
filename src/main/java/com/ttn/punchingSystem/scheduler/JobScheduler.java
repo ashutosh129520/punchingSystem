@@ -4,10 +4,8 @@ import com.ttn.punchingSystem.config.DistributedLockManager;
 import com.ttn.punchingSystem.model.PunchingDetailsDTO;
 import com.ttn.punchingSystem.service.CsvReaderService;
 import com.ttn.punchingSystem.utils.AppConstant;
-import io.swagger.annotations.ApiOperation;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
 import org.redisson.api.RLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,9 +26,10 @@ public class JobScheduler implements Job {
         this.csvReaderService = csvReaderService;
     }
 
-    @ApiOperation(value = "Read CSV from S3",
-            notes = "This task reads a CSV file from the S3 bucket.")
-    public void readCsvFromS3() {
+    @Override
+    public void execute(JobExecutionContext jobExecutionContext) {
+        System.out.println("Executing CSV reading task...");
+
         RLock lock = null;
         try {
             lock = lockManager.tryLock(AppConstant.LOCK_KEY, 0, 5, TimeUnit.MINUTES);
@@ -41,15 +40,9 @@ public class JobScheduler implements Job {
                 System.out.println("Another instance is already running the task.");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException();
         } finally {
             lockManager.unlock(lock);
         }
-    }
-
-    @Override
-    public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
-        System.out.println("Executing CSV reading task...");
-        csvReaderService.readCsvFileFromS3();
     }
 }
